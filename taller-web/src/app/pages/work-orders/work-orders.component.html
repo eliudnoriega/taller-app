@@ -1,0 +1,1056 @@
+<div class="orders-page">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="toast-notification">
+    <app-icon name="check-circle" [size]="18"></app-icon>
+    <span>{{ toastMessage() }}</span>
+  </div>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Recepción y Órdenes de Trabajo (OT)</h1>
+      <p class="page-subtitle">Checklist digital de ingreso, fotografías, asignación de técnicos y estatus en tiempo real</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="openCreateModal()">
+        <app-icon name="plus" [size]="18"></app-icon>
+        <span>Nueva Recepción / Checklist</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Filter & Search Toolbar -->
+  <div class="toolbar card">
+    <div class="status-tabs">
+      <button
+        class="tab-btn"
+        [class.active]="selectedStatusFilter() === 'todos'"
+        (click)="selectedStatusFilter.set('todos')"
+      >
+        <span>Todos</span>
+        <span class="count-pill">{{ workOrderService.totalOrdersCount() }}</span>
+      </button>
+
+      <button
+        *ngFor="let st of statusList"
+        class="tab-btn"
+        [class.active]="selectedStatusFilter() === st.key"
+        (click)="selectedStatusFilter.set(st.key)"
+      >
+        <app-icon [name]="st.icon" [size]="14"></app-icon>
+        <span>{{ st.label }}</span>
+        <span class="count-pill" [ngClass]="st.class">
+          {{ workOrderService.statusCounts()[st.key] }}
+        </span>
+      </button>
+    </div>
+
+    <div class="search-box">
+      <app-icon name="search" [size]="18" extraClass="search-icon"></app-icon>
+      <input
+        type="text"
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event)"
+        placeholder="Buscar por placa, cliente u orden..."
+        class="form-control filter-input"
+      />
+    </div>
+  </div>
+
+  <!-- Orders Table / List -->
+  <div class="card table-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Orden / Placa</th>
+            <th>Cliente & Vehículo</th>
+            <th>Motivo / Diagnóstico</th>
+            <th>Técnico Asignado</th>
+            <th>Checklist & Fotos</th>
+            <th>Estado en Tiempo Real</th>
+            <th>Total / Saldo</th>
+            <th class="text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let order of filteredOrders" class="order-row" (click)="viewOrderDetail(order)">
+            <td>
+              <div class="order-id-cell">
+                <span class="ot-number">{{ order.orderNumber }}</span>
+                <span class="plate-badge">{{ order.vehiclePlate }}</span>
+              </div>
+            </td>
+
+            <td>
+              <div class="cell-main-sub">
+                <span class="main-text">{{ order.clientName }}</span>
+                <span class="sub-text">{{ order.vehicleDescription }}</span>
+                <span class="km-text">{{ order.vehicleMileage | number }} km</span>
+              </div>
+            </td>
+
+            <td>
+              <div class="cell-desc-truncate" [title]="order.failureDescription">
+                {{ order.failureDescription }}
+              </div>
+            </td>
+
+            <td>
+              <div class="mechanic-cell">
+                <app-icon name="wrench" [size]="14" extraClass="text-muted"></app-icon>
+                <span>{{ order.mechanicName }}</span>
+              </div>
+            </td>
+
+            <td>
+              <div class="checklist-summary-cell">
+                <div class="fuel-indicator-mini" [title]="'Combustible: ' + order.checklist.fuelLevel + '%'">
+                  <app-icon name="fuel" [size]="14"></app-icon>
+                  <span>{{ order.checklist.fuelLevel }}%</span>
+                </div>
+                <div class="photos-count-mini" *ngIf="order.checklist.photos.length > 0">
+                  <app-icon name="camera" [size]="14"></app-icon>
+                  <span>{{ order.checklist.photos.length }} fotos</span>
+                </div>
+              </div>
+            </td>
+
+            <td>
+              <div (click)="$event.stopPropagation()">
+                <select
+                  [ngModel]="order.status"
+                  (ngModelChange)="changeOrderStatus(order.id, $event)"
+                  class="status-select-badge"
+                  [ngClass]="'badge-' + order.status"
+                >
+                  <option *ngFor="let st of statusList" [value]="st.key">{{ st.label }}</option>
+                </select>
+              </div>
+            </td>
+
+            <td>
+              <div class="cell-main-sub">
+                <span class="main-text">${{ order.total | number:'1.2-2' }}</span>
+                <span class="sub-text" [class.text-danger]="order.balance > 0">
+                  {{ order.balance === 0 ? '✓ Liquidado' : 'Resta: $' + (order.balance | number:'1.2-2') }}
+                </span>
+              </div>
+            </td>
+
+            <td class="text-right" (click)="$event.stopPropagation()">
+              <button class="btn btn-secondary btn-sm" (click)="viewOrderDetail(order)">
+                <app-icon name="file-text" [size]="14"></app-icon>
+                <span>Detalle</span>
+              </button>
+            </td>
+          </tr>
+
+          <tr *ngIf="filteredOrders.length === 0">
+            <td colspan="8" class="text-center py-5 text-muted">
+              No se encontraron órdenes de trabajo con los filtros aplicados.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL 1: NUEVA RECEPCIÓN Y ORDEN DE TRABAJO (CON CHECKLIST DIGITAL) -->
+  <div *ngIf="isCreateModalOpen()" class="modal-overlay" (click)="closeCreateModal()">
+    <div class="modal-container" style="max-width: 850px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Recepción de Vehículo & Nueva Orden (OT)</h3>
+          <p class="text-muted">Registro de cliente, vehículo, checklist de ingreso y evidencias</p>
+        </div>
+        <button class="close-btn" (click)="closeCreateModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Paso 1: Datos del Cliente y Vehículo -->
+        <div class="form-section-title">
+          <app-icon name="user" [size]="18"></app-icon>
+          <span>1. Datos del Cliente y Unidad</span>
+        </div>
+
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Nombre del Cliente *</label>
+            <input type="text" [(ngModel)]="newOrder.clientName" class="form-control" placeholder="Ej. Roberto Sánchez" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Teléfono (WhatsApp)</label>
+            <input type="text" [(ngModel)]="newOrder.clientPhone" class="form-control" placeholder="+52 55 1234 5678" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Correo Electrónico</label>
+            <input type="email" [(ngModel)]="newOrder.clientEmail" class="form-control" placeholder="cliente@correo.com" />
+          </div>
+        </div>
+
+        <div class="form-grid-3">
+          <!-- Placa / Matrícula con ComboBox Desplegable y Cuadro de Texto -->
+          <div class="form-group plate-combobox-group">
+            <div class="label-with-status">
+              <label class="form-label" for="plateInput">Placa / Matrícula *</label>
+              <span *ngIf="isExistingVehicle()" class="badge-locked-status" title="Vehículo registrado en sistema">
+                <app-icon name="shield-check" [size]="12"></app-icon>
+                <span>Registrado</span>
+              </span>
+              <span *ngIf="!isExistingVehicle() && newOrder.vehiclePlate" class="badge-new-status">
+                <app-icon name="plus" [size]="12"></app-icon>
+                <span>Nuevo</span>
+              </span>
+            </div>
+
+            <div class="plate-combobox-wrapper">
+              <input
+                id="plateInput"
+                type="text"
+                list="registeredPlatesDatalist"
+                [ngModel]="newOrder.vehiclePlate"
+                (ngModelChange)="onPlateInput($event)"
+                (focus)="isPlateDropdownOpen.set(true)"
+                class="form-control uppercase plate-input-styled"
+                placeholder="Escribe o selecciona (ej. ABC-1234)..."
+                autocomplete="off"
+              />
+              <button
+                type="button"
+                class="combobox-toggle-btn"
+                (click)="togglePlateDropdown()"
+                title="Desplegar lista de vehículos registrados"
+              >
+                <app-icon name="chevron-down" [size]="16"></app-icon>
+              </button>
+
+              <!-- Datalist para autocompletado nativo rápido -->
+              <datalist id="registeredPlatesDatalist">
+                <option *ngFor="let veh of workOrderService.registeredVehicles()" [value]="veh.plate">
+                  {{ veh.description }} ({{ veh.clientName }})
+                </option>
+              </datalist>
+
+              <!-- Dropdown Panel Flotante enriquecido -->
+              <div class="plate-dropdown-menu" *ngIf="isPlateDropdownOpen()">
+                <div class="dropdown-header">
+                  <span>Vehículos Registrados ({{ matchingRegisteredVehicles.length }})</span>
+                  <button type="button" class="btn-close-dropdown" (click)="closePlateDropdown()">✕</button>
+                </div>
+
+                <div class="dropdown-items-scroll">
+                  <div
+                    *ngFor="let veh of matchingRegisteredVehicles"
+                    class="plate-dropdown-item"
+                    (click)="selectExistingVehicle(veh)"
+                  >
+                    <div class="item-plate-badge">{{ veh.plate }}</div>
+                    <div class="item-veh-info">
+                      <span class="item-desc">{{ veh.description }}</span>
+                      <span class="item-owner">{{ veh.clientName }}</span>
+                    </div>
+                  </div>
+
+                  <div *ngIf="matchingRegisteredVehicles.length === 0" class="dropdown-empty">
+                    <span class="empty-title">Placa no registrada</span>
+                    <span class="empty-sub">Puedes escribir los datos del nuevo vehículo al lado.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <span class="field-hint-existing" *ngIf="isExistingVehicle()">
+              ✓ Placa existente. Vehículo bloqueado contra modificaciones.
+            </span>
+            <span class="field-hint-new" *ngIf="!isExistingVehicle() && newOrder.vehiclePlate">
+              ✨ Placa no encontrada: Se registrará como nuevo vehículo.
+            </span>
+          </div>
+
+          <!-- Vehículo (Marca, Modelo, Año): BLOQUEADO SI YA EXISTE LA PLACA, EDITABLE SI ES NUEVA -->
+          <div class="form-group">
+            <div class="label-with-status">
+              <label class="form-label">Vehículo (Marca, Modelo, Año) *</label>
+              <span *ngIf="isExistingVehicle()" class="lock-indicator" title="No se puede alterar el vehículo porque la placa ya existe">
+                <app-icon name="shield-check" [size]="12"></app-icon>
+                <span>Bloqueado</span>
+              </span>
+            </div>
+
+            <div class="input-lock-wrapper">
+              <input
+                type="text"
+                [(ngModel)]="newOrder.vehicleDescription"
+                class="form-control"
+                [class.input-locked]="isExistingVehicle()"
+                [readonly]="isExistingVehicle()"
+                placeholder="Ej. Nissan Sentra 2021 Gris"
+              />
+              <span *ngIf="isExistingVehicle()" class="lock-badge-icon" title="Placa existente: El vehículo no se puede alterar para proteger la integridad del historial clínico">
+                <app-icon name="shield-check" [size]="16" extraClass="text-amber"></app-icon>
+              </span>
+            </div>
+
+            <span *ngIf="isExistingVehicle()" class="locked-warning-note">
+              🔒 La placa ya existe. Los datos del vehículo no se pueden alterar para proteger el historial.
+            </span>
+            <span *ngIf="!isExistingVehicle()" class="field-hint-edit">
+              Ingresa la marca, modelo, año y color del nuevo vehículo.
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Kilometraje Actual</label>
+            <input type="number" [(ngModel)]="newOrder.vehicleMileage" class="form-control" placeholder="45000" />
+          </div>
+        </div>
+
+        <!-- Paso 2: Checklist Digital de Ingreso -->
+        <div class="form-section-title mt-4">
+          <app-icon name="clipboard-list" [size]="18"></app-icon>
+          <span>2. Checklist de Ingreso & Estado Físico</span>
+        </div>
+
+        <!-- Nivel de Combustible -->
+        <div class="fuel-selector-wrap">
+          <div class="fuel-header">
+            <label class="form-label">
+              <app-icon name="fuel" [size]="16"></app-icon>
+              <span>Nivel de Combustible en Tanque: <strong>{{ newOrder.checklist.fuelLevel }}%</strong></span>
+            </label>
+          </div>
+          <div class="fuel-buttons-row">
+            <button
+              type="button"
+              class="fuel-btn"
+              [class.active]="newOrder.checklist.fuelLevel === 0"
+              (click)="setFuelLevel(0)"
+            >
+              Reserva (0%)
+            </button>
+            <button
+              type="button"
+              class="fuel-btn"
+              [class.active]="newOrder.checklist.fuelLevel === 25"
+              (click)="setFuelLevel(25)"
+            >
+              1/4 (25%)
+            </button>
+            <button
+              type="button"
+              class="fuel-btn"
+              [class.active]="newOrder.checklist.fuelLevel === 50"
+              (click)="setFuelLevel(50)"
+            >
+              1/2 (50%)
+            </button>
+            <button
+              type="button"
+              class="fuel-btn"
+              [class.active]="newOrder.checklist.fuelLevel === 75"
+              (click)="setFuelLevel(75)"
+            >
+              3/4 (75%)
+            </button>
+            <button
+              type="button"
+              class="fuel-btn"
+              [class.active]="newOrder.checklist.fuelLevel === 100"
+              (click)="setFuelLevel(100)"
+            >
+              Lleno (100%)
+            </button>
+          </div>
+          <div class="fuel-visual-bar">
+            <div class="fuel-bar-fill" [style.width.%]="newOrder.checklist.fuelLevel"></div>
+          </div>
+        </div>
+
+        <!-- Inventario de accesorios y estado -->
+        <div class="checklist-grid">
+          <label class="check-item">
+            <input type="checkbox" [(ngModel)]="newOrder.checklist.spareTire" />
+            <span>Rueda de auxilio / refacción</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" [(ngModel)]="newOrder.checklist.hydraulicJack" />
+            <span>Gato hidráulico</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" [(ngModel)]="newOrder.checklist.wheelWrench" />
+            <span>Llave de tuercas de rueda</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" [(ngModel)]="newOrder.checklist.vehicleDocuments" />
+            <span>Documentos / Tarjeta en guantera</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" [(ngModel)]="newOrder.checklist.lightsWorking" />
+            <span>Luces delanteras y traseras OK</span>
+          </label>
+          <label class="check-item">
+            <input type="checkbox" [(ngModel)]="newOrder.checklist.airConditioning" />
+            <span>Aire acondicionado operando</span>
+          </label>
+        </div>
+
+        <div class="form-group mt-3">
+          <label class="form-label">Inspección de Carrocería (Rayones, abolladuras o golpes previos)</label>
+          <textarea
+            [(ngModel)]="newOrder.checklist.bodyNotes"
+            rows="2"
+            class="form-control"
+            placeholder="Describa el estado de carrocería..."
+          ></textarea>
+        </div>
+
+        <!-- Evidencias Fotográficas -->
+        <div class="photos-section">
+          <div class="photos-head">
+            <label class="form-label">Fotografías de Evidencia de Ingreso</label>
+            <button type="button" class="btn btn-secondary btn-sm" (click)="openCameraModal('newOrder')">
+              <app-icon name="camera" [size]="14"></app-icon>
+              <span>+ Añadir Fotografía</span>
+            </button>
+          </div>
+
+          <div class="photos-gallery">
+            <div *ngFor="let photo of newOrder.checklist.photos; let i = index" class="photo-thumbnail">
+              <img [src]="photo" alt="Evidencia de ingreso" />
+              <button class="remove-photo-btn" (click)="removePhoto(i)">
+                <app-icon name="x" [size]="14"></app-icon>
+              </button>
+            </div>
+            <div class="add-photo-box" (click)="openCameraModal('newOrder')">
+              <app-icon name="camera" [size]="20"></app-icon>
+              <span>Subir evidencia / Tomar foto</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paso 3: Diagnóstico, Técnico y Repuestos Iniciales -->
+        <div class="form-section-title mt-4">
+          <app-icon name="wrench" [size]="18"></app-icon>
+          <span>3. Falla Reportada & Asignación Técnica</span>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Técnico Mecánico Asignado</label>
+            <select [(ngModel)]="newOrder.mechanicId" class="form-select">
+              <option *ngFor="let mec of workOrderService.mechanics" [value]="mec.id">
+                {{ mec.name }} ({{ mec.specialty }})
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Prioridad</label>
+            <select [(ngModel)]="newOrder.priority" class="form-select">
+              <option value="baja">Baja</option>
+              <option value="media">Media</option>
+              <option value="alta">Alta</option>
+              <option value="urgente">Urgente</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Motivo de Ingreso / Fallas Reportadas</label>
+          <textarea
+            [(ngModel)]="newOrder.failureDescription"
+            rows="2"
+            class="form-control"
+            placeholder="Describa los síntomas reportados por el cliente..."
+          ></textarea>
+        </div>
+
+        <!-- Presupuesto Inicial de Servicios / Repuestos -->
+        <div class="items-builder-wrap mt-3">
+          <div class="items-header">
+            <span class="form-label">Servicios y Repuestos de la Orden</span>
+          </div>
+
+          <div class="add-item-row">
+            <select class="form-select" (change)="onSelectInventoryProduct($event)" style="max-width: 220px;">
+              <option value="">-- Cargar de inventario --</option>
+              <option *ngFor="let inv of inventoryService.items()" [value]="inv.id">
+                {{ inv.name }} (${{ inv.salePrice }})
+              </option>
+            </select>
+
+            <input
+              type="text"
+              [(ngModel)]="newItemDesc"
+              placeholder="Descripción del servicio o repuesto..."
+              class="form-control"
+            />
+
+            <input
+              type="number"
+              [(ngModel)]="newItemQty"
+              min="1"
+              style="width: 70px;"
+              class="form-control"
+            />
+
+            <input
+              type="number"
+              [(ngModel)]="newItemPrice"
+              style="width: 100px;"
+              class="form-control"
+              placeholder="Precio"
+            />
+
+            <button type="button" class="btn btn-secondary btn-sm" (click)="addItemToNewOrder()">
+              <app-icon name="plus" [size]="16"></app-icon>
+              <span>Agregar</span>
+            </button>
+          </div>
+
+          <!-- Items list -->
+          <div class="items-table-simple" *ngIf="newOrder.items.length > 0">
+            <div *ngFor="let itm of newOrder.items; let i = index" class="item-row-simple">
+              <span class="type-pill" [class.type-parts]="itm.type === 'repuesto'">
+                {{ itm.type === 'repuesto' ? 'Repuesto' : 'Mano de Obra' }}
+              </span>
+              <span class="desc">{{ itm.description }}</span>
+              <span class="qty">Cant: {{ itm.quantity }}</span>
+              <span class="price">${{ itm.total | number:'1.2-2' }}</span>
+              <button class="remove-btn" (click)="removeItemFromNewOrder(i)">
+                <app-icon name="x" [size]="14"></app-icon>
+              </button>
+            </div>
+            <div class="items-total-row">
+              <span>Subtotal estimado: <strong>${{ calculateOrderSubtotal() | number:'1.2-2' }}</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeCreateModal()">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveNewOrder()">
+          <app-icon name="check" [size]="18"></app-icon>
+          <span>Crear Orden de Trabajo</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: DETALLE COMPLETO DE ORDEN & CHECKLIST FOTOGRÁFICO -->
+  <div *ngIf="selectedOrder() as order" class="modal-overlay" (click)="closeDetailModal()">
+    <div class="modal-container" style="max-width: 800px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="detail-header-info">
+          <div class="title-with-plate">
+            <h2>{{ order.orderNumber }}</h2>
+            <span class="plate-badge-lg">{{ order.vehiclePlate }}</span>
+          </div>
+          <p class="text-muted">{{ order.vehicleDescription }} • {{ order.clientName }}</p>
+        </div>
+        <button class="close-btn" (click)="closeDetailModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Live Status Changer Bar -->
+        <div class="status-change-strip">
+          <span class="label">Cambiar Estado Operativo:</span>
+          <div class="status-btn-group">
+            <button
+              *ngFor="let st of statusList"
+              class="status-toggle-btn"
+              [class.active]="order.status === st.key"
+              [ngClass]="order.status === st.key ? st.class : ''"
+              (click)="changeOrderStatus(order.id, st.key)"
+            >
+              <app-icon [name]="st.icon" [size]="14"></app-icon>
+              <span>{{ st.label }}</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="detail-two-cols">
+          <!-- Left: General & Financial info -->
+          <div class="detail-left">
+            <div class="detail-section">
+              <h4>Información de la Orden</h4>
+              <div class="info-kv">
+                <span class="k">Técnico Responsable:</span>
+                <span class="v font-bold">{{ order.mechanicName }}</span>
+              </div>
+              <div class="info-kv">
+                <span class="k">Fecha de Ingreso:</span>
+                <span class="v">{{ order.entryDate }}</span>
+              </div>
+              <div class="info-kv">
+                <span class="k">Estimada de Entrega:</span>
+                <span class="v">{{ order.estimatedDeliveryDate }}</span>
+              </div>
+              <div class="info-kv">
+                <span class="k">Teléfono Cliente:</span>
+                <span class="v">{{ order.clientPhone }}</span>
+              </div>
+              <div class="info-kv">
+                <span class="k">Token Seguimiento:</span>
+                <span class="v text-blue">{{ order.trackingToken }}</span>
+              </div>
+            </div>
+
+            <!-- Resumen Financiero de la Orden -->
+            <div class="detail-section">
+              <h4>Resumen Financiero</h4>
+              <div class="info-kv">
+                <span class="k">Subtotal:</span>
+                <span class="v">${{ order.subtotal | number:'1.2-2' }}</span>
+              </div>
+              <div class="info-kv">
+                <span class="k">IVA (16%):</span>
+                <span class="v">${{ order.tax | number:'1.2-2' }}</span>
+              </div>
+              <div class="info-kv total-line">
+                <span class="k">Total Orden:</span>
+                <span class="v">${{ order.total | number:'1.2-2' }}</span>
+              </div>
+              <div class="info-kv">
+                <span class="k">Anticipos Pagados:</span>
+                <span class="v text-emerald">${{ order.advancePaid | number:'1.2-2' }}</span>
+              </div>
+              <div class="info-kv">
+                <span class="k">Saldo Pendiente:</span>
+                <span class="v font-bold" [class.text-danger]="order.balance > 0">
+                  ${{ order.balance | number:'1.2-2' }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Inspection Checklist & Evidence Photos -->
+          <div class="detail-right">
+            <div class="detail-section">
+              <h4>Checklist de Ingreso</h4>
+              <div class="fuel-readout">
+                <app-icon name="fuel" [size]="18" extraClass="text-amber"></app-icon>
+                <span>Nivel de Combustible: <strong>{{ order.checklist.fuelLevel }}%</strong></span>
+              </div>
+
+              <div class="checklist-pills-wrap">
+                <span class="chk-pill" [class.chk-ok]="order.checklist.spareTire">
+                  {{ order.checklist.spareTire ? '✓ Rueda auxilio' : '✗ Sin rueda auxilio' }}
+                </span>
+                <span class="chk-pill" [class.chk-ok]="order.checklist.hydraulicJack">
+                  {{ order.checklist.hydraulicJack ? '✓ Gato hidráulico' : '✗ Sin gato' }}
+                </span>
+                <span class="chk-pill" [class.chk-ok]="order.checklist.wheelWrench">
+                  {{ order.checklist.wheelWrench ? '✓ Llave de ruedas' : '✗ Sin llave' }}
+                </span>
+                <span class="chk-pill" [class.chk-ok]="order.checklist.vehicleDocuments">
+                  {{ order.checklist.vehicleDocuments ? '✓ Tarjeta circulación' : '✗ Sin documentos' }}
+                </span>
+                <span class="chk-pill" [class.chk-ok]="order.checklist.lightsWorking">
+                  {{ order.checklist.lightsWorking ? '✓ Luces operando' : '✗ Falla luces' }}
+                </span>
+              </div>
+
+              <div class="body-remarks mt-2">
+                <strong>Carrocería:</strong> {{ order.checklist.bodyNotes }}
+              </div>
+            </div>
+
+            <!-- Fotos de evidencia -->
+            <div class="detail-section">
+              <div class="photos-head mb-2">
+                <h4>Evidencias Fotográficas ({{ order.checklist.photos.length }})</h4>
+                <button type="button" class="btn btn-secondary btn-sm" (click)="openCameraModal('selectedOrder')">
+                  <app-icon name="camera" [size]="14"></app-icon>
+                  <span>+ Tomar Foto</span>
+                </button>
+              </div>
+              <div class="photos-thumb-row" *ngIf="order.checklist.photos.length > 0">
+                <a *ngFor="let photo of order.checklist.photos" [href]="photo" target="_blank" class="detail-photo-link">
+                  <img [src]="photo" alt="Evidencia" />
+                </a>
+              </div>
+              <div *ngIf="order.checklist.photos.length === 0" class="text-xs text-muted">
+                Sin fotografías adjuntas aún.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bitácora y Comentarios por Estado (Independientemente del estado de la orden) -->
+        <div class="detail-section bitacora-section mt-3">
+          <div class="bitacora-header">
+            <div class="bitacora-title-wrap">
+              <h4>
+                <app-icon name="message-square" [size]="18" extraClass="text-primary"></app-icon>
+                <span>Bitácora y Comentarios por Estado</span>
+              </h4>
+              <span class="count-pill badge-primary">{{ order.statusComments.length }}</span>
+            </div>
+            <span class="text-xs text-muted">
+              Puede registrar notas o avances para cualquier estado en cualquier momento
+            </span>
+          </div>
+
+          <!-- Formulario para Registrar Comentario en Cualquier Estado -->
+          <div class="comment-composer-box">
+            <div class="composer-top-row">
+              <div class="composer-field">
+                <label class="form-label-xs">Asociar al Estado:</label>
+                <select [(ngModel)]="selectedCommentStatus" class="form-select form-select-sm status-picker">
+                  <option *ngFor="let st of statusList" [value]="st.key">
+                    {{ st.label }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="composer-field">
+                <label class="form-label-xs">Autor / Especialista:</label>
+                <input
+                  type="text"
+                  [(ngModel)]="newCommentAuthor"
+                  class="form-control form-control-sm"
+                  placeholder="Ej. Roberto Valdés"
+                />
+              </div>
+            </div>
+
+            <div class="composer-input-row">
+              <textarea
+                [(ngModel)]="newCommentText"
+                rows="2"
+                class="form-control comment-textarea"
+                placeholder="Escriba aquí el comentario técnico, avance, retraso de refacciones o notas para el estado seleccionado..."
+              ></textarea>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm btn-post-comment"
+                [disabled]="!newCommentText.trim()"
+                (click)="addCommentToSelectedOrder()"
+              >
+                <app-icon name="plus" [size]="15"></app-icon>
+                <span>Registrar Comentario</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Historial de Comentarios / Bitácora -->
+          <div class="comments-feed" *ngIf="order.statusComments && order.statusComments.length > 0">
+            <div *ngFor="let c of order.statusComments" class="comment-card">
+              <div class="comment-card-header">
+                <span class="status-badge-inline" [ngClass]="getStatusBadgeClass(c.status)">
+                  <app-icon [name]="getStatusIcon(c.status)" [size]="12"></app-icon>
+                  <span>{{ getStatusLabel(c.status) }}</span>
+                </span>
+                <div class="comment-meta">
+                  <span class="comment-author font-semibold">{{ c.author }}</span>
+                  <span class="comment-sep">•</span>
+                  <span class="comment-time">{{ c.timestamp }}</span>
+                </div>
+              </div>
+              <p class="comment-body-text">{{ c.comment }}</p>
+            </div>
+          </div>
+
+          <div *ngIf="!order.statusComments || order.statusComments.length === 0" class="empty-comments-box">
+            <app-icon name="message-circle" [size]="20" extraClass="text-muted"></app-icon>
+            <span>No hay comentarios registrados en la bitácora aún. Ingrese el primero arriba.</span>
+          </div>
+        </div>
+
+        <!-- Items & Parts in the order (Con capacidad de agregar más servicios y repuestos) -->
+        <div class="detail-section items-management-section mt-3">
+          <div class="section-head-between">
+            <div>
+              <h4>
+                <app-icon name="package" [size]="18" extraClass="text-primary"></app-icon>
+                <span>Desglose de Repuestos y Mano de Obra</span>
+              </h4>
+              <p class="text-xs text-muted">
+                Agregue nuevos servicios o repuestos a la orden en cualquier momento. Subtotal, IVA y saldos se recalculan automáticamente.
+              </p>
+            </div>
+          </div>
+
+          <!-- Formulario rápido para agregar nuevo ítem a la orden activa -->
+          <div class="detail-add-item-box">
+            <div class="detail-item-type-select">
+              <label class="form-label-xs">Tipo:</label>
+              <select [(ngModel)]="detailNewItemType" class="form-select form-select-sm">
+                <option value="repuesto">Repuesto</option>
+                <option value="mano_de_obra">Mano de Obra</option>
+              </select>
+            </div>
+
+            <div class="detail-item-inventory-select">
+              <label class="form-label-xs">Catálogo de Almacén:</label>
+              <select
+                class="form-select form-select-sm"
+                [(ngModel)]="detailSelectedInventoryItem"
+                (change)="onSelectInventoryForDetail($event)"
+              >
+                <option value="">-- Cargar de inventario MELECSA --</option>
+                <option *ngFor="let inv of inventoryService.items()" [value]="inv.id">
+                  {{ inv.name }} (${{ inv.salePrice }} - Stock: {{ inv.stock }})
+                </option>
+              </select>
+            </div>
+
+            <div class="detail-item-desc-input">
+              <label class="form-label-xs">Descripción / Concepto *:</label>
+              <input
+                type="text"
+                [(ngModel)]="detailNewItemDesc"
+                placeholder="Nombre del repuesto o servicio..."
+                class="form-control form-control-sm"
+              />
+            </div>
+
+            <div class="detail-item-qty-input">
+              <label class="form-label-xs">Cant:</label>
+              <input
+                type="number"
+                [(ngModel)]="detailNewItemQty"
+                min="1"
+                class="form-control form-control-sm"
+              />
+            </div>
+
+            <div class="detail-item-price-input">
+              <label class="form-label-xs">P. Unitario ($):</label>
+              <input
+                type="number"
+                [(ngModel)]="detailNewItemPrice"
+                min="0"
+                class="form-control form-control-sm"
+              />
+            </div>
+
+            <div class="detail-item-btn-wrap">
+              <button
+                type="button"
+                class="btn btn-primary btn-sm btn-add-detail-item"
+                (click)="addItemToSelectedOrder()"
+              >
+                <app-icon name="plus" [size]="14"></app-icon>
+                <span>+ Agregar a la Orden</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Tabla de Ítems actuales con acción para eliminar si aplica -->
+          <table class="data-table mt-2">
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Concepto</th>
+                <th>Cantidad</th>
+                <th>P. Unitario</th>
+                <th>Total</th>
+                <th class="text-right">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let itm of order.items">
+                <td>
+                  <span class="badge" [ngClass]="itm.type === 'repuesto' ? 'badge-esperando_repuestos' : 'badge-en_reparacion'">
+                    {{ itm.type === 'repuesto' ? 'Repuesto' : 'Mano de Obra' }}
+                  </span>
+                </td>
+                <td class="font-medium">{{ itm.description }}</td>
+                <td>{{ itm.quantity }}</td>
+                <td>${{ itm.unitPrice | number:'1.2-2' }}</td>
+                <td class="font-bold">${{ itm.total | number:'1.2-2' }}</td>
+                <td class="text-right">
+                  <button
+                    type="button"
+                    class="btn-icon-danger"
+                    title="Eliminar de la orden"
+                    (click)="removeItemFromSelectedOrder(itm.id)"
+                  >
+                    <app-icon name="trash" [size]="14"></app-icon>
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="order.items.length === 0">
+                <td colspan="6" class="text-center py-3 text-muted">
+                  No hay ítems registrados en esta orden. Ingrese uno arriba.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeDetailModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: CÁMARA DE FOTOS / EVIDENCIAS DEL VEHÍCULO -->
+  <div *ngIf="isCameraModalOpen()" class="modal-overlay camera-modal-overlay" (click)="closeCameraModal()">
+    <div class="modal-container camera-modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header camera-modal-header">
+        <div class="camera-header-info">
+          <div class="camera-title-badge">
+            <app-icon name="camera" [size]="20" extraClass="text-amber"></app-icon>
+            <h3>Cámara de Evidencias - MELECSA</h3>
+          </div>
+          <p class="text-xs text-muted">
+            Enfoca la unidad (carrocería, placas, odómetro o motor) y presiona el disparador para capturar.
+          </p>
+        </div>
+        <button class="close-btn" (click)="closeCameraModal()" title="Cerrar cámara">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body camera-modal-body">
+        <!-- Error Banner si no hay permisos o no hay cámara -->
+        <div *ngIf="cameraError()" class="alert-camera-error">
+          <app-icon name="alert-triangle" [size]="22" extraClass="text-danger"></app-icon>
+          <div class="camera-error-content">
+            <p class="error-msg">{{ cameraError() }}</p>
+            <button type="button" class="btn btn-secondary btn-sm mt-2" (click)="fileInputRef.click()">
+              <app-icon name="upload" [size]="16"></app-icon>
+              <span>Subir Fotografía desde Archivos</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Visor de Cámara en Vivo -->
+        <div class="camera-viewport-card" *ngIf="!capturedImage()">
+          <!-- Spinner de carga inicial de la cámara -->
+          <div class="camera-loading-overlay" *ngIf="isCameraLoading()">
+            <div class="camera-spinner"></div>
+            <span>Conectando cámara del dispositivo...</span>
+          </div>
+
+          <!-- Elemento de video HTML5 para la transmisión de la cámara -->
+          <video
+            #videoElement
+            class="camera-live-video"
+            autoplay
+            playsinline
+            muted
+          ></video>
+
+          <!-- Marco de encuadre fotográfico -->
+          <div class="camera-overlay-frame" *ngIf="!isCameraLoading()">
+            <div class="frame-corner corner-tl"></div>
+            <div class="frame-corner corner-tr"></div>
+            <div class="frame-corner corner-bl"></div>
+            <div class="frame-corner corner-br"></div>
+            <div class="frame-live-tag">
+              <span class="live-dot-pulse"></span>
+              <span>CÁMARA EN VIVO</span>
+            </div>
+          </div>
+
+          <!-- Canvas oculto para capturar el fotograma exacto -->
+          <canvas #canvasElement style="display: none;"></canvas>
+        </div>
+
+        <!-- Vista previa de la foto capturada -->
+        <div class="captured-preview-card" *ngIf="capturedImage() as img">
+          <img [src]="img" alt="Foto capturada" class="preview-img" />
+          <div class="preview-tag-badge">
+            <app-icon name="check-circle" [size]="16" extraClass="text-emerald"></app-icon>
+            <span>Fotografía capturada con éxito</span>
+          </div>
+        </div>
+
+        <!-- Input invisible para selección alternativa de archivos de galería -->
+        <input
+          #fileInputRef
+          type="file"
+          accept="image/*"
+          capture="environment"
+          (change)="onFileSelected($event)"
+          style="display: none;"
+        />
+      </div>
+
+      <!-- Barra de Acciones y Disparador -->
+      <div class="modal-footer camera-modal-footer">
+        <!-- Controles durante la vista en vivo -->
+        <div class="camera-live-controls" *ngIf="!capturedImage()">
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm camera-opt-btn"
+            (click)="switchCamera()"
+            title="Alternar entre cámara trasera y frontal"
+          >
+            <app-icon name="refresh-cw" [size]="16"></app-icon>
+            <span>Cambiar Cámara</span>
+          </button>
+
+          <!-- Botón Disparador Principal -->
+          <button
+            type="button"
+            class="btn-shutter-outer"
+            (click)="takePhoto()"
+            [disabled]="isCameraLoading() || !!cameraError()"
+            title="Capturar Fotografía"
+          >
+            <div class="btn-shutter-inner">
+              <app-icon name="camera" [size]="26"></app-icon>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm camera-opt-btn"
+            (click)="fileInputRef.click()"
+            title="Cargar imagen desde galería o archivos"
+          >
+            <app-icon name="image" [size]="16"></app-icon>
+            <span>Galería</span>
+          </button>
+        </div>
+
+        <!-- Controles cuando se ha tomado una foto -->
+        <div class="camera-preview-controls" *ngIf="capturedImage()">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="retakePhoto()"
+          >
+            <app-icon name="refresh-cw" [size]="16"></app-icon>
+            <span>Repetir Foto</span>
+          </button>
+
+          <div class="accept-buttons-group">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              (click)="acceptPhoto(true)"
+              title="Guardar foto actual y continuar tomando más fotos"
+            >
+              <app-icon name="plus" [size]="16"></app-icon>
+              <span>Guardar y Tomar Otra</span>
+            </button>
+
+            <button
+              type="button"
+              class="btn btn-primary"
+              (click)="acceptPhoto(false)"
+            >
+              <app-icon name="check" [size]="16"></app-icon>
+              <span>Usar esta Fotografía</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

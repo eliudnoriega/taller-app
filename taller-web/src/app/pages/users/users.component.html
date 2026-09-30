@@ -1,0 +1,592 @@
+<div class="users-page">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="toast-notification">
+    <app-icon name="check-circle" [size]="18"></app-icon>
+    <span>{{ toastMessage() }}</span>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <div class="title-with-badge">
+        <h1 class="page-title">Administración de Usuarios del Sistema</h1>
+        <span class="api-badge" title="Conectado a http://localhost:8000/api/usuarios">
+          <span class="live-pulse"></span>
+          <span>API REST ACTIVA</span>
+        </span>
+      </div>
+      <p class="page-subtitle">Gestión de cuentas de acceso, roles de seguridad (Administrador, Asesor, Mecánico, Cajero) y personal MELECSA</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" (click)="refreshList()" [disabled]="userService.isLoading()" title="Recargar usuarios desde http://localhost:8000">
+        <app-icon name="refresh-cw" [size]="16" [class.spinning]="userService.isLoading()"></app-icon>
+        <span>{{ userService.isLoading() ? 'Sincronizando...' : 'Sincronizar' }}</span>
+      </button>
+
+      <button class="btn btn-primary" (click)="openCreateModal()">
+        <app-icon name="plus" [size]="18"></app-icon>
+        <span>Nuevo Usuario</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Stats Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-blue-subtle text-blue">
+        <app-icon name="users" [size]="24"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Total Cuentas</span>
+        <span class="kpi-val">{{ userService.totalUsersCount() }}</span>
+        <span class="kpi-sub">Usuarios con credenciales</span>
+      </div>
+    </div>
+
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-emerald-subtle text-emerald">
+        <app-icon name="check-circle" [size]="24"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Usuarios Activos</span>
+        <span class="kpi-val text-emerald">{{ userService.activeUsersCount() }}</span>
+        <span class="kpi-sub">Acceso habilitado al sistema</span>
+      </div>
+    </div>
+
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-indigo-subtle text-indigo">
+        <app-icon name="shield-check" [size]="24"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Administradores</span>
+        <span class="kpi-val text-indigo">{{ userService.adminUsersCount() }}</span>
+        <span class="kpi-sub">Permisos de alta jerarquía</span>
+      </div>
+    </div>
+
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-amber-subtle text-amber">
+        <app-icon name="user" [size]="24"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Asesores de Servicio</span>
+        <span class="kpi-val text-amber">{{ userService.advisorUsersCount() }}</span>
+        <span class="kpi-sub">Recepción y atención a clientes</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Toolbar -->
+  <div class="toolbar card">
+    <div class="filter-tabs">
+      <button
+        class="tab-btn"
+        [class.active]="selectedRoleFilter() === 'todos'"
+        (click)="selectedRoleFilter.set('todos')"
+      >
+        <span>Todos los Roles</span>
+        <span class="count-pill">{{ userService.totalUsersCount() }}</span>
+      </button>
+
+      <button
+        class="tab-btn"
+        [class.active]="selectedRoleFilter() === 'admin'"
+        (click)="selectedRoleFilter.set('admin')"
+      >
+        <span>Administradores</span>
+        <span class="count-pill badge-role-admin">{{ userService.adminUsersCount() }}</span>
+      </button>
+
+      <button
+        class="tab-btn"
+        [class.active]="selectedRoleFilter() === 'asesor'"
+        (click)="selectedRoleFilter.set('asesor')"
+      >
+        <span>Asesores</span>
+        <span class="count-pill badge-role-asesor">{{ userService.advisorUsersCount() }}</span>
+      </button>
+
+      <button
+        class="tab-btn"
+        [class.active]="selectedRoleFilter() === 'mecanico'"
+        (click)="selectedRoleFilter.set('mecanico')"
+      >
+        <span>Mecánicos</span>
+      </button>
+
+      <button
+        class="tab-btn"
+        [class.active]="selectedRoleFilter() === 'cajero'"
+        (click)="selectedRoleFilter.set('cajero')"
+      >
+        <span>Cajeros</span>
+      </button>
+    </div>
+
+    <div class="toolbar-right">
+      <select
+        [ngModel]="selectedStatusFilter()"
+        (ngModelChange)="selectedStatusFilter.set($event)"
+        class="form-select status-filter-select"
+      >
+        <option value="todos">Todos los Estados</option>
+        <option value="activo">Solo Activos</option>
+        <option value="inactivo">Solo Inactivos</option>
+      </select>
+
+      <div class="search-box">
+        <app-icon name="search" [size]="18" extraClass="search-icon"></app-icon>
+        <input
+          type="text"
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+          placeholder="Buscar por nombre, email o cargo..."
+          class="form-control filter-input"
+        />
+      </div>
+    </div>
+  </div>
+
+  <!-- Users Table Card -->
+  <div class="card table-card">
+    <div class="table-responsive">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Usuario & Credencial</th>
+            <th>Rol de Acceso</th>
+            <th>Especialidad / Cargo</th>
+            <th>Teléfono</th>
+            <th>Último Ingreso</th>
+            <th>Estatus</th>
+            <th class="text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of filteredUsers()" class="user-row">
+            <td>
+              <div class="user-cell">
+                <img
+                  [src]="u.avatar"
+                  [alt]="u.name"
+                  class="user-avatar-sm"
+                  (error)="onAvatarImgError($event, u)"
+                />
+                <div class="user-cell-meta">
+                  <span class="user-cell-name">{{ u.name }}</span>
+                  <span class="user-cell-email">{{ u.email }}</span>
+                </div>
+              </div>
+            </td>
+
+            <td>
+              <span class="role-pill" [ngClass]="'role-' + u.role">
+                <app-icon [name]="u.role === 'admin' ? 'shield-check' : (u.role === 'mecanico' ? 'wrench' : 'user')" [size]="13"></app-icon>
+                <span>{{ u.roleLabel }}</span>
+              </span>
+            </td>
+
+            <td>
+              <span class="cell-text-muted">{{ u.especialidad }}</span>
+            </td>
+
+            <td>
+              <span class="cell-text-sm">{{ u.phone || '--' }}</span>
+            </td>
+
+            <td>
+              <div class="last-login-cell">
+                <app-icon name="clock" [size]="12" extraClass="text-muted"></app-icon>
+                <span>{{ u.lastLogin || 'Nunca' }}</span>
+              </div>
+            </td>
+
+            <td>
+              <button
+                type="button"
+                class="status-toggle-badge"
+                [ngClass]="u.status === 'activo' ? 'status-badge-active' : 'status-badge-inactive'"
+                (click)="toggleStatus(u)"
+                [title]="'Clic para ' + (u.status === 'activo' ? 'desactivar' : 'activar')"
+              >
+                <span class="status-dot"></span>
+                <span>{{ u.status === 'activo' ? 'Activo' : 'Inactivo' }}</span>
+              </button>
+            </td>
+
+            <td class="text-right">
+              <div class="actions-group-inline">
+                <button
+                  type="button"
+                  class="btn-icon-action"
+                  title="Restablecer contraseña"
+                  (click)="resetPassword(u)"
+                >
+                  <app-icon name="key" [size]="15"></app-icon>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-icon-action"
+                  title="Editar usuario"
+                  (click)="openEditModal(u)"
+                >
+                  <app-icon name="edit" [size]="15"></app-icon>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-icon-action text-danger hover-danger"
+                  title="Eliminar o desactivar usuario"
+                  (click)="deleteUser(u)"
+                >
+                  <app-icon name="trash" [size]="15"></app-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+
+          <tr *ngIf="filteredUsers().length === 0">
+            <td colspan="7" class="text-center py-5 text-muted">
+              <div class="empty-state-wrap">
+                <app-icon name="users" [size]="36" extraClass="text-muted mb-2"></app-icon>
+                <p>No se encontraron usuarios con los criterios seleccionados.</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODAL 1: CREAR / EDITAR USUARIO CON FOTO DE PERFIL -->
+  <div *ngIf="isModalOpen()" class="modal-overlay" (click)="closeModal()">
+    <div class="modal-container user-edit-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>{{ isEditing() ? 'Editar Usuario del Sistema' : 'Crear Nuevo Usuario' }}</h3>
+          <p class="text-muted">Credenciales de acceso para el personal del taller MELECSA</p>
+        </div>
+        <button class="close-btn" (click)="closeModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- SECCIÓN: FOTO DE PERFIL / CÁMARA EN VIVO -->
+        <div class="avatar-upload-section">
+          <div class="avatar-preview-wrap">
+            <img
+              [src]="formUser.avatar || userService.generateAvatarUrl(formUser.name || 'Usuario')"
+              alt="Foto de perfil"
+              class="avatar-circle-img"
+              (error)="onAvatarImgError($event, formUser)"
+            />
+            <button
+              type="button"
+              class="avatar-camera-btn"
+              (click)="openCameraModal()"
+              title="Tomar foto con cámara"
+            >
+              <app-icon name="camera" [size]="18"></app-icon>
+            </button>
+          </div>
+
+          <div class="avatar-actions-meta">
+            <h4 class="avatar-meta-title">Fotografía de Perfil</h4>
+            <p class="avatar-meta-desc">
+              Toma una fotografía con la cámara web o móvil, o sube una imagen de archivo para la credencial de acceso del personal de MELECSA.
+            </p>
+
+            <div class="avatar-buttons-row">
+              <!-- Input para selección de archivos dentro del modal de usuario -->
+              <input
+                #fileModalUpload
+                type="file"
+                accept="image/png, image/jpeg, image/webp, image/gif"
+                (change)="onFileSelected($event)"
+                style="display: none;"
+              />
+
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm btn-camera-action"
+                (click)="openCameraModal()"
+              >
+                <app-icon name="camera" [size]="16" extraClass="text-amber"></app-icon>
+                <span>Tomar Foto con Cámara</span>
+              </button>
+
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                (click)="fileModalUpload.click()"
+              >
+                <app-icon name="upload" [size]="15"></app-icon>
+                <span>Subir Archivo</span>
+              </button>
+
+              <button
+                *ngIf="formUser.avatar"
+                type="button"
+                class="btn btn-secondary btn-sm text-danger"
+                (click)="removeAvatar()"
+                title="Quitar fotografía"
+              >
+                <app-icon name="trash" [size]="14"></app-icon>
+                <span>Quitar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Nombre Completo *</label>
+            <input
+              type="text"
+              [(ngModel)]="formUser.name"
+              class="form-control"
+              placeholder="Ej. Sofía Herrera Ruiz"
+              required
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Correo Electrónico (Login) *</label>
+            <input
+              type="email"
+              [(ngModel)]="formUser.email"
+              class="form-control"
+              placeholder="usuario@melecsa.com"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group" *ngIf="!isEditing()">
+          <label class="form-label">Contraseña Inicial *</label>
+          <input
+            type="password"
+            [(ngModel)]="formUser.initialPassword"
+            class="form-control"
+            placeholder="••••••••"
+          />
+          <span class="text-xs text-muted mt-1 block">El usuario podrá actualizar su clave en su primer acceso.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Rol en el Sistema *</label>
+          <div class="role-selector-grid">
+            <div
+              *ngFor="let r of rolesList"
+              class="role-option-card"
+              [class.role-selected]="formUser.role === r.key"
+              (click)="onRoleChange(r.key)"
+            >
+              <div class="role-option-head">
+                <span class="role-name">{{ r.label }}</span>
+                <app-icon *ngIf="formUser.role === r.key" name="check-circle" [size]="16" extraClass="text-primary"></app-icon>
+              </div>
+              <span class="role-desc">{{ r.desc }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Especialidad / Departamento</label>
+            <input
+              type="text"
+              [(ngModel)]="formUser.especialidad"
+              class="form-control"
+              placeholder="Ej. Diagnóstico Computarizado"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Teléfono de Contacto</label>
+            <input
+              type="text"
+              [(ngModel)]="formUser.phone"
+              class="form-control"
+              placeholder="+52 55 1234 5678"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Estado de la Cuenta</label>
+          <select [(ngModel)]="formUser.status" class="form-select">
+            <option value="activo">Activo (Permite iniciar sesión en MELECSA)</option>
+            <option value="inactivo">Inactivo (Acceso suspendido / bloqueado)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeModal()" [disabled]="isSaving()">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveUser()" [disabled]="isSaving()">
+          <app-icon *ngIf="!isSaving()" name="check" [size]="18"></app-icon>
+          <app-icon *ngIf="isSaving()" name="refresh-cw" [size]="18" extraClass="spinning"></app-icon>
+          <span>{{ isSaving() ? 'Guardando en Servidor...' : (isEditing() ? 'Guardar Cambios' : 'Crear Usuario') }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: DIÁLOGO DE CÁMARA PARA FOTO DE PERFIL -->
+  <div *ngIf="isCameraModalOpen()" class="modal-overlay camera-modal-overlay" (click)="closeCameraModal()">
+    <div class="modal-container camera-modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header camera-modal-header">
+        <div class="camera-header-info">
+          <div class="camera-title-badge">
+            <app-icon name="camera" [size]="20" extraClass="text-amber"></app-icon>
+            <h3>Cámara de Perfil - MELECSA</h3>
+          </div>
+          <p class="text-xs text-muted">
+            Ubica tu rostro en el centro del encuadre y presiona el disparador para capturar tu foto.
+          </p>
+        </div>
+        <button class="close-btn" (click)="closeCameraModal()" title="Cerrar cámara">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body camera-modal-body">
+        <!-- Error Banner si no hay permisos o no hay cámara -->
+        <div *ngIf="cameraError()" class="alert-camera-error">
+          <app-icon name="alert-triangle" [size]="22" extraClass="text-danger"></app-icon>
+          <div class="camera-error-content">
+            <p class="error-msg">{{ cameraError() }}</p>
+            <button type="button" class="btn btn-secondary btn-sm mt-2" (click)="cameraFileInput.click()">
+              <app-icon name="upload" [size]="16"></app-icon>
+              <span>Subir Fotografía desde Archivos</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Visor de Cámara en Vivo -->
+        <div class="camera-viewport-card" *ngIf="!capturedImage()">
+          <!-- Spinner de carga inicial de la cámara -->
+          <div class="camera-loading-overlay" *ngIf="isCameraLoading()">
+            <div class="camera-spinner"></div>
+            <span>Conectando cámara del dispositivo...</span>
+          </div>
+
+          <!-- Elemento de video HTML5 para la transmisión de la cámara -->
+          <video
+            #videoElement
+            class="camera-live-video"
+            autoplay
+            playsinline
+            muted
+          ></video>
+
+          <!-- Marco de encuadre fotográfico especial para retrato/perfil -->
+          <div class="camera-overlay-frame" *ngIf="!isCameraLoading()">
+            <div class="frame-corner corner-tl"></div>
+            <div class="frame-corner corner-tr"></div>
+            <div class="frame-corner corner-bl"></div>
+            <div class="frame-corner corner-br"></div>
+
+            <!-- Guía circular para encuadre del rostro -->
+            <div class="face-guide-circle">
+              <span class="guide-text">Centra tu rostro</span>
+            </div>
+
+            <div class="frame-live-tag">
+              <span class="live-dot-pulse"></span>
+              <span>CÁMARA EN VIVO</span>
+            </div>
+          </div>
+
+          <!-- Canvas oculto para capturar el fotograma exacto -->
+          <canvas #canvasElement style="display: none;"></canvas>
+        </div>
+
+        <!-- Vista previa de la foto capturada -->
+        <div class="captured-preview-card" *ngIf="capturedImage() as img">
+          <div class="avatar-preview-display">
+            <img [src]="img" alt="Foto capturada" class="preview-avatar-circle" />
+          </div>
+          <div class="preview-tag-badge">
+            <app-icon name="check-circle" [size]="16" extraClass="text-emerald"></app-icon>
+            <span>Fotografía capturada con éxito</span>
+          </div>
+        </div>
+
+        <!-- Input invisible dentro del modal de cámara para fallback -->
+        <input
+          #cameraFileInput
+          type="file"
+          accept="image/*"
+          capture="user"
+          (change)="onFileSelected($event)"
+          style="display: none;"
+        />
+      </div>
+
+      <!-- Barra de Acciones y Disparador -->
+      <div class="modal-footer camera-modal-footer">
+        <!-- Controles durante la vista en vivo -->
+        <div class="camera-live-controls" *ngIf="!capturedImage()">
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm camera-opt-btn"
+            (click)="switchCamera()"
+            title="Alternar entre cámara trasera y frontal"
+          >
+            <app-icon name="refresh-cw" [size]="16"></app-icon>
+            <span>Cambiar Cámara</span>
+          </button>
+
+          <!-- Botón Disparador Principal -->
+          <button
+            type="button"
+            class="btn-shutter-outer"
+            (click)="takePhoto()"
+            [disabled]="isCameraLoading() || !!cameraError()"
+            title="Capturar Fotografía"
+          >
+            <div class="btn-shutter-inner">
+              <app-icon name="camera" [size]="26"></app-icon>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm camera-opt-btn"
+            (click)="cameraFileInput.click()"
+            title="Cargar imagen desde galería o archivos"
+          >
+            <app-icon name="image" [size]="16"></app-icon>
+            <span>Galería</span>
+          </button>
+        </div>
+
+        <!-- Controles cuando se ha tomado una foto -->
+        <div class="camera-preview-controls" *ngIf="capturedImage()">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            (click)="retakePhoto()"
+          >
+            <app-icon name="refresh-cw" [size]="16"></app-icon>
+            <span>Repetir Foto</span>
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="acceptPhoto()"
+          >
+            <app-icon name="check" [size]="16"></app-icon>
+            <span>Usar como Foto de Perfil</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

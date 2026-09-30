@@ -1,0 +1,455 @@
+<div class="budgets-page">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="toast-notification">
+    <app-icon name="check-circle" [size]="18"></app-icon>
+    <span>{{ toastMessage() }}</span>
+  </div>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Presupuestos e Historial Clínico</h1>
+      <p class="page-subtitle">Cotizaciones rápidas convertibles a OT en 1 clic y consulta de expediente automotriz por placa</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="openCreateModal()">
+        <app-icon name="plus" [size]="18"></app-icon>
+        <span>Nueva Cotización</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Primary Tabs: Cotizaciones vs Historial Clínico -->
+  <div class="main-tabs card">
+    <button
+      class="main-tab-btn"
+      [class.active]="activeTab() === 'cotizaciones'"
+      (click)="activeTab.set('cotizaciones')"
+    >
+      <app-icon name="file-text" [size]="18"></app-icon>
+      <span>Cotizaciones Rápidas</span>
+      <span class="tab-badge">{{ budgetService.budgets().length }}</span>
+    </button>
+
+    <button
+      class="main-tab-btn"
+      [class.active]="activeTab() === 'historial'"
+      (click)="activeTab.set('historial')"
+    >
+      <app-icon name="history" [size]="18"></app-icon>
+      <span>Historial Clínico del Vehículo</span>
+    </button>
+  </div>
+
+  <!-- TAB 1: COTIZACIONES RÁPIDAS -->
+  <div *ngIf="activeTab() === 'cotizaciones'" class="tab-content-area">
+    <!-- Filter Bar -->
+    <div class="toolbar card">
+      <div class="search-box">
+        <app-icon name="search" [size]="18" extraClass="search-icon"></app-icon>
+        <input
+          type="text"
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+          placeholder="Buscar cotización por cliente o placa..."
+          class="form-control filter-input"
+        />
+      </div>
+    </div>
+
+    <!-- Cotizaciones Table -->
+    <div class="card table-card">
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Cotización</th>
+              <th>Cliente & Vehículo</th>
+              <th>Fecha / Vencimiento</th>
+              <th>Horas Est.</th>
+              <th>Estado</th>
+              <th>Total (IVA Inc.)</th>
+              <th class="text-right">Conversión a OT & Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let budget of filteredBudgets">
+              <td>
+                <span class="budget-number">{{ budget.budgetNumber }}</span>
+              </td>
+
+              <td>
+                <div class="cell-main-sub">
+                  <span class="main-text">{{ budget.clientName }}</span>
+                  <span class="sub-text">{{ budget.vehicleDescription }}</span>
+                  <span class="plate-badge-sm">{{ budget.vehiclePlate }}</span>
+                </div>
+              </td>
+
+              <td>
+                <div class="cell-main-sub">
+                  <span class="main-text">{{ budget.createdAt.split(' ')[0] }}</span>
+                  <span class="sub-text">Vence: {{ budget.validUntil }}</span>
+                </div>
+              </td>
+
+              <td>
+                <span class="labor-hours">{{ budget.estimatedLaborHours }} hrs</span>
+              </td>
+
+              <td>
+                <span class="badge" [ngClass]="statusConfig[budget.status].class">
+                  {{ statusConfig[budget.status].label }}
+                </span>
+                <div *ngIf="budget.convertedWorkOrderId" class="text-xs text-blue font-bold mt-1">
+                  -> {{ budget.convertedWorkOrderId }}
+                </div>
+              </td>
+
+              <td>
+                <div class="cell-main-sub">
+                  <span class="main-text font-bold">${{ budget.total | number:'1.2-2' }}</span>
+                  <span class="sub-text">Sub: ${{ budget.subtotal | number:'1.2-2' }}</span>
+                </div>
+              </td>
+
+              <td class="text-right">
+                <div class="action-buttons-cell">
+                  <!-- ⚡ BOTÓN DESTACADO: CONVERTIR A OT CON 1 CLIC -->
+                  <button
+                    *ngIf="budget.status !== 'convertido_ot'"
+                    class="btn btn-primary btn-sm btn-convert-ot"
+                    (click)="convertBudgetToOT(budget)"
+                    title="Crear Orden de Trabajo automáticamente a partir de esta cotización"
+                  >
+                    <app-icon name="zap" [size]="14"></app-icon>
+                    <span>Convertir a OT</span>
+                  </button>
+
+                  <button
+                    class="btn btn-secondary btn-sm"
+                    (click)="sendBudgetWhatsApp(budget)"
+                    title="Enviar por WhatsApp"
+                  >
+                    <app-icon name="message-circle" [size]="14"></app-icon>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: HISTORIAL CLÍNICO DEL VEHÍCULO -->
+  <div *ngIf="activeTab() === 'historial'" class="tab-content-area">
+    <!-- Search Bar for Plate / VIN -->
+    <div class="card history-search-card">
+      <div class="history-search-row">
+        <div class="history-search-input-wrap">
+          <label class="form-label">Consultar Historial Clínico Automotriz por Placa o VIN:</label>
+          <div class="input-with-action">
+            <app-icon name="car" [size]="20" extraClass="search-icon-car"></app-icon>
+            <input
+              type="text"
+              [(ngModel)]="historySearchPlate"
+              (keyup.enter)="searchHistory()"
+              placeholder="Ej. ABC-1234, NXY-7721 o Número de Chasis..."
+              class="form-control search-input-history"
+            />
+            <button class="btn btn-primary" (click)="searchHistory()">
+              <app-icon name="search" [size]="18"></app-icon>
+              <span>Consultar Expediente</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="quick-plates">
+          <span class="text-xs text-muted">Ejemplos rápidos:</span>
+          <button class="plate-quick-btn" (click)="quickSearchHistory('ABC-1234')">ABC-1234</button>
+          <button class="plate-quick-btn" (click)="quickSearchHistory('NXY-7721')">NXY-7721</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clinical History Results -->
+    <div *ngIf="clinicalHistoryResult() as history" class="history-results">
+      <!-- Vehicle Summary Header Card -->
+      <div class="card vehicle-summary-card">
+        <div class="veh-info-col">
+          <div class="veh-plate-row">
+            <span class="plate-hero">{{ history.vehiclePlate }}</span>
+            <span class="vin-tag">VIN: {{ history.vin }}</span>
+          </div>
+          <h2 class="veh-title">{{ history.vehicleDescription }}</h2>
+          <p class="veh-owner">Propietario: <strong>{{ history.ownerName }}</strong></p>
+        </div>
+
+        <div class="veh-stats-col">
+          <div class="vstat-box">
+            <span class="vstat-num">{{ history.totalVisits }}</span>
+            <span class="vstat-label">Visitas al Taller</span>
+          </div>
+          <div class="vstat-box">
+            <span class="vstat-num text-emerald">${{ history.totalSpent | number:'1.2-2' }}</span>
+            <span class="vstat-label">Inversión Acumulada</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline of Previous Interventions -->
+      <div class="timeline-container">
+        <h3 class="timeline-heading">
+          <app-icon name="history" [size]="20"></app-icon>
+          <span>Expediente Cronológico de Servicios y Mantenimientos</span>
+        </h3>
+
+        <div class="timeline">
+          <div *ngFor="let record of history.records" class="timeline-item">
+            <div class="timeline-marker"></div>
+            <div class="timeline-content card">
+              <div class="timeline-header">
+                <div class="order-ref">
+                  <span class="ot-tag">{{ record.orderNumber }}</span>
+                  <span class="date-tag">{{ record.date }}</span>
+                  <span class="km-tag">{{ record.mileage | number }} KM</span>
+                </div>
+                <div class="amount-tag">${{ record.totalAmount | number:'1.2-2' }} MXN</div>
+              </div>
+
+              <div class="diagnosis-block">
+                <strong>Diagnóstico / Falla:</strong> {{ record.diagnosis }}
+              </div>
+
+              <!-- Replaced parts & services -->
+              <div class="parts-services-grid">
+                <div class="parts-col" *ngIf="record.replacedParts.length > 0">
+                  <span class="sub-heading">Repuestos Reemplazados:</span>
+                  <ul class="clean-list">
+                    <li *ngFor="let p of record.replacedParts">
+                      <app-icon name="package" [size]="14" extraClass="text-amber"></app-icon>
+                      <span>{{ p }}</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="labor-col" *ngIf="record.laborServices.length > 0">
+                  <span class="sub-heading">Mano de Obra & Servicios:</span>
+                  <ul class="clean-list">
+                    <li *ngFor="let l of record.laborServices">
+                      <app-icon name="wrench" [size]="14" extraClass="text-blue"></app-icon>
+                      <span>{{ l }}</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="timeline-footer">
+                <span class="mechanic-ref">
+                  <app-icon name="user" [size]="14"></app-icon>
+                  Atendido por: <strong>{{ record.mechanicName }}</strong>
+                </span>
+                <span class="warranty-ref">
+                  <app-icon name="shield-check" [size]="14"></app-icon>
+                  Garantía: {{ record.warrantyValidUntil }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty result placeholder -->
+    <div *ngIf="!clinicalHistoryResult()" class="card empty-search-card">
+      <app-icon name="search" [size]="36" extraClass="text-muted"></app-icon>
+      <h3>No se encontraron registros</h3>
+      <p class="text-muted">Ingrese una placa o número de serie VIN registrado para consultar su historial médico automotriz.</p>
+    </div>
+  </div>
+
+  <!-- MODAL: NUEVA COTIZACIÓN RÁPIDA -->
+  <div *ngIf="isCreateModalOpen()" class="modal-overlay" (click)="closeCreateModal()">
+    <div class="modal-container" style="max-width: 750px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Nueva Cotización Rápida</h3>
+          <p class="text-muted">Calcula costos de insumos, mano de obra y envíala al cliente</p>
+        </div>
+        <button class="close-btn" (click)="closeCreateModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Nombre del Cliente *</label>
+            <input type="text" [(ngModel)]="newBudget.clientName" class="form-control" placeholder="Ej. Juan Pérez" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Teléfono</label>
+            <input type="text" [(ngModel)]="newBudget.clientPhone" class="form-control" placeholder="+52 55..." />
+          </div>
+          <!-- Placa del Vehículo con ComboBox -->
+          <div class="form-group plate-combobox-group">
+            <div class="label-with-status">
+              <label class="form-label">Placa del Vehículo *</label>
+              <span *ngIf="isExistingVehicle()" class="badge-locked-status" title="Vehículo registrado">
+                <app-icon name="shield-check" [size]="12"></app-icon>
+                <span>Registrado</span>
+              </span>
+            </div>
+
+            <div class="plate-combobox-wrapper">
+              <input
+                type="text"
+                list="registeredPlatesBudgetDatalist"
+                [ngModel]="newBudget.vehiclePlate"
+                (ngModelChange)="onPlateInput($event)"
+                (focus)="isPlateDropdownOpen.set(true)"
+                class="form-control uppercase plate-input-styled"
+                placeholder="Escribe o selecciona..."
+                autocomplete="off"
+              />
+              <button
+                type="button"
+                class="combobox-toggle-btn"
+                (click)="togglePlateDropdown()"
+                title="Desplegar lista"
+              >
+                <app-icon name="chevron-down" [size]="16"></app-icon>
+              </button>
+
+              <datalist id="registeredPlatesBudgetDatalist">
+                <option *ngFor="let veh of workOrderService.registeredVehicles()" [value]="veh.plate">
+                  {{ veh.description }} ({{ veh.clientName }})
+                </option>
+              </datalist>
+
+              <div class="plate-dropdown-menu" *ngIf="isPlateDropdownOpen()">
+                <div class="dropdown-header">
+                  <span>Vehículos Registrados ({{ matchingRegisteredVehicles.length }})</span>
+                  <button type="button" class="btn-close-dropdown" (click)="closePlateDropdown()">✕</button>
+                </div>
+                <div class="dropdown-items-scroll">
+                  <div
+                    *ngFor="let veh of matchingRegisteredVehicles"
+                    class="plate-dropdown-item"
+                    (click)="selectExistingVehicle(veh)"
+                  >
+                    <div class="item-plate-badge">{{ veh.plate }}</div>
+                    <div class="item-veh-info">
+                      <span class="item-desc">{{ veh.description }}</span>
+                      <span class="item-owner">{{ veh.clientName }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <!-- Vehículo: Bloqueado si existe, editable si es nueva -->
+          <div class="form-group">
+            <div class="label-with-status">
+              <label class="form-label">Vehículo (Marca, Modelo, Año) *</label>
+              <span *ngIf="isExistingVehicle()" class="lock-indicator" title="Vehículo protegido">
+                <app-icon name="shield-check" [size]="12"></app-icon>
+                <span>Bloqueado</span>
+              </span>
+            </div>
+            <div class="input-lock-wrapper">
+              <input
+                type="text"
+                [(ngModel)]="newBudget.vehicleDescription"
+                class="form-control"
+                [class.input-locked]="isExistingVehicle()"
+                [readonly]="isExistingVehicle()"
+                placeholder="Ej. Ford Focus 2019"
+              />
+            </div>
+            <span *ngIf="isExistingVehicle()" class="locked-warning-note">
+              🔒 Placa existente: Los datos del vehículo están protegidos.
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Válida Hasta</label>
+            <input type="date" [(ngModel)]="newBudget.validUntil" class="form-control" />
+          </div>
+        </div>
+
+        <!-- Agregar Repuestos / Mano de obra -->
+        <div class="items-builder-wrap mt-3">
+          <label class="form-label">Conceptos de la Cotización</label>
+          <div class="add-item-row">
+            <select class="form-select" (change)="onSelectInventoryProduct($event)" style="max-width: 220px;">
+              <option value="">-- Cargar de inventario --</option>
+              <option *ngFor="let inv of inventoryService.items()" [value]="inv.id">
+                {{ inv.name }} (${{ inv.salePrice }})
+              </option>
+            </select>
+
+            <input
+              type="text"
+              [(ngModel)]="newItemDesc"
+              placeholder="Descripción del concepto..."
+              class="form-control"
+            />
+            <input
+              type="number"
+              [(ngModel)]="newItemQty"
+              min="1"
+              style="width: 70px;"
+              class="form-control"
+            />
+            <input
+              type="number"
+              [(ngModel)]="newItemPrice"
+              style="width: 100px;"
+              class="form-control"
+              placeholder="Precio"
+            />
+            <button type="button" class="btn btn-secondary btn-sm" (click)="addItemToBudget()">
+              <app-icon name="plus" [size]="16"></app-icon>
+              <span>Añadir</span>
+            </button>
+          </div>
+
+          <div class="items-table-simple" *ngIf="newBudget.items.length > 0">
+            <div *ngFor="let itm of newBudget.items; let i = index" class="item-row-simple">
+              <span class="type-pill" [class.type-parts]="itm.type === 'repuesto'">
+                {{ itm.type === 'repuesto' ? 'Repuesto' : 'Mano de Obra' }}
+              </span>
+              <span class="desc">{{ itm.description }}</span>
+              <span class="qty">x{{ itm.quantity }}</span>
+              <span class="price">${{ itm.total | number:'1.2-2' }}</span>
+              <button class="remove-btn" (click)="removeItem(i)">
+                <app-icon name="x" [size]="14"></app-icon>
+              </button>
+            </div>
+            <div class="items-total-row">
+              <span>Total Estimado: <strong>${{ calculateSubtotal() * 1.16 | number:'1.2-2' }}</strong> (con IVA)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group mt-3">
+          <label class="form-label">Notas Adicionales / Condiciones de Garantía</label>
+          <textarea [(ngModel)]="newBudget.notes" rows="2" class="form-control" placeholder="Tiempos de entrega estimados, condiciones..."></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeCreateModal()">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveBudget()">
+          <app-icon name="check" [size]="18"></app-icon>
+          <span>Guardar Cotización</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

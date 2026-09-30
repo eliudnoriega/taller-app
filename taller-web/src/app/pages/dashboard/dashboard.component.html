@@ -1,0 +1,303 @@
+<div class="dashboard-container">
+  <!-- Toast alert -->
+  <div *ngIf="toastMessage()" class="toast-notification">
+    <app-icon name="check-circle" [size]="18"></app-icon>
+    <span>{{ toastMessage() }}</span>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Panel de Control & Notificaciones</h1>
+      <p class="page-subtitle">Monitoreo de operaciones en taller, rentabilidad y avisos a clientes</p>
+    </div>
+    <div class="header-actions">
+      <a routerLink="/ordenes" class="btn btn-secondary">
+        <app-icon name="car" [size]="18"></app-icon>
+        <span>Ver Todas las OT</span>
+      </a>
+      <a routerLink="/ordenes" [queryParams]="{ nueva: true }" class="btn btn-primary">
+        <app-icon name="plus" [size]="18"></app-icon>
+        <span>Nueva Recepción</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid">
+    <!-- Card 1: Active Orders -->
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-blue-subtle">
+        <app-icon name="car" [size]="24" extraClass="text-blue"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Órdenes en Taller</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value">{{ workOrderService.activeOrdersCount() }}</span>
+          <span class="kpi-sub">activas</span>
+        </div>
+        <div class="kpi-meta">
+          <span>{{ workOrderService.statusCounts().en_reparacion }} en reparación</span>
+          <span>•</span>
+          <span>{{ workOrderService.statusCounts().esperando_repuestos }} esperando repuestos</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2: Ready for Delivery (Actionable) -->
+    <div class="kpi-card card border-emerald-focus">
+      <div class="kpi-icon-wrap bg-emerald-subtle">
+        <app-icon name="check-circle" [size]="24" extraClass="text-emerald"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Listos para Entrega</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value text-emerald">{{ workOrderService.readyForDeliveryCount() }}</span>
+          <span class="kpi-badge-pulse">¡Avisar al cliente!</span>
+        </div>
+        <div class="kpi-meta">
+          <span>Vehículos verificados listos para retiro</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 3: Today & Monthly Income -->
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-purple-subtle">
+        <app-icon name="dollar-sign" [size]="24" extraClass="text-purple"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Recaudación de Hoy</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value">${{ financeService.todayIncome() | number:'1.2-2' }}</span>
+          <span class="kpi-sub">MXN</span>
+        </div>
+        <div class="kpi-meta">
+          <span>Mes: ${{ financeService.monthlyIncome() | number:'1.2-2' }}</span>
+          <span>•</span>
+          <span class="text-rose">Por cobrar: ${{ workOrderService.accountsReceivableTotal() | number:'1.2-2' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 4: Inventory Alerts -->
+    <div class="kpi-card card" [class.border-danger]="inventoryService.lowStockCount() > 0">
+      <div class="kpi-icon-wrap" [ngClass]="inventoryService.lowStockCount() > 0 ? 'bg-danger-subtle' : 'bg-slate-subtle'">
+        <app-icon name="alert-triangle" [size]="24" [extraClass]="inventoryService.lowStockCount() > 0 ? 'text-danger' : 'text-slate'"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Stock de Insumos Crítico</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value" [class.text-danger]="inventoryService.lowStockCount() > 0">
+            {{ inventoryService.lowStockCount() }}
+          </span>
+          <span class="kpi-sub">productos</span>
+        </div>
+        <div class="kpi-meta">
+          <a routerLink="/inventario" class="link-danger-sub" *ngIf="inventoryService.lowStockCount() > 0">
+            Ver alertas de stock mínimo &rarr;
+          </a>
+          <span *ngIf="inventoryService.lowStockCount() === 0">Niveles de stock óptimos</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Operational Status Bar -->
+  <div class="card status-overview-card">
+    <div class="section-title-row">
+      <div>
+        <h3>Estado del Flujo Operativo en Tiempo Real</h3>
+        <p class="text-muted">Distribución de vehículos en los diferentes estadios de trabajo</p>
+      </div>
+      <div class="status-summary-pills">
+        <span class="status-pill status-diag">Diagnóstico: {{ workOrderService.statusCounts().diagnostico }}</span>
+        <span class="status-pill status-parts">Esperando Repuestos: {{ workOrderService.statusCounts().esperando_repuestos }}</span>
+        <span class="status-pill status-repair">En Reparación: {{ workOrderService.statusCounts().en_reparacion }}</span>
+        <span class="status-pill status-ready">Listo Entrega: {{ workOrderService.statusCounts().listo_entrega }}</span>
+      </div>
+    </div>
+
+    <div class="progress-track">
+      <div
+        class="progress-seg seg-diag"
+        [style.width.%]="(workOrderService.statusCounts().diagnostico / (workOrderService.totalOrdersCount() || 1)) * 100"
+        title="En Diagnóstico"
+      ></div>
+      <div
+        class="progress-seg seg-parts"
+        [style.width.%]="(workOrderService.statusCounts().esperando_repuestos / (workOrderService.totalOrdersCount() || 1)) * 100"
+        title="Esperando Repuestos"
+      ></div>
+      <div
+        class="progress-seg seg-repair"
+        [style.width.%]="(workOrderService.statusCounts().en_reparacion / (workOrderService.totalOrdersCount() || 1)) * 100"
+        title="En Reparación"
+      ></div>
+      <div
+        class="progress-seg seg-ready"
+        [style.width.%]="(workOrderService.statusCounts().listo_entrega / (workOrderService.totalOrdersCount() || 1)) * 100"
+        title="Listo para Entrega"
+      ></div>
+    </div>
+  </div>
+
+  <!-- Main Grid: Urgent Attention / Customer Notifications & Active Mechanics -->
+  <div class="dashboard-columns">
+    <!-- Left Column: Orders Ready & Client Notification Hub -->
+    <div class="card column-card">
+      <div class="card-head-row">
+        <div>
+          <h3>Centro de Notificaciones y Avisos a Clientes</h3>
+          <p class="text-muted">Genera enlaces de seguimiento en vivo y envía avisos de entrega vía WhatsApp o Correo</p>
+        </div>
+      </div>
+
+      <div class="orders-notif-list">
+        <div *ngFor="let order of workOrderService.orders()" class="order-notif-row">
+          <div class="order-id-badge">
+            <span class="num">{{ order.orderNumber }}</span>
+            <span class="plate">{{ order.vehiclePlate }}</span>
+          </div>
+
+          <div class="order-desc-col">
+            <div class="client-name">{{ order.clientName }}</div>
+            <div class="vehicle-desc">{{ order.vehicleDescription }}</div>
+            <div class="meta-status">
+              <span class="badge" [ngClass]="statusMap[order.status].class">
+                <app-icon [name]="statusMap[order.status].icon" [size]="12"></app-icon>
+                {{ statusMap[order.status].label }}
+              </span>
+              <span *ngIf="order.clientNotifiedAt" class="notified-tag">
+                <app-icon name="check" [size]="12"></app-icon>
+                Avisado {{ order.clientNotifiedAt.split(' ')[1] }}
+              </span>
+            </div>
+          </div>
+
+          <div class="order-action-col">
+            <!-- Copy tracking link button -->
+            <button
+              class="btn btn-secondary btn-sm"
+              (click)="copyTrackingLink(order.trackingToken)"
+              title="Copiar enlace de seguimiento al portapapeles"
+            >
+              <app-icon name="share-2" [size]="14"></app-icon>
+              <span>Copiar Enlace</span>
+            </button>
+
+            <!-- Send Notification Modal trigger -->
+            <button
+              class="btn btn-primary btn-sm"
+              (click)="openNotificationModal(order)"
+              title="Notificar por WhatsApp o Email"
+            >
+              <app-icon name="message-circle" [size]="14"></app-icon>
+              <span>Avisar Cliente</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Mechanics Status & Quick Access -->
+    <div class="dashboard-side-col">
+      <!-- Mechanics Card -->
+      <div class="card side-card">
+        <div class="card-head-row">
+          <h4>Equipo Técnico / Carga de Trabajo</h4>
+        </div>
+        <div class="mechanics-list">
+          <div *ngFor="let mec of workOrderService.mechanics" class="mechanic-row">
+            <img [src]="mec.avatar" [alt]="mec.name" class="mechanic-avatar" />
+            <div class="mechanic-info">
+              <span class="mec-name">{{ mec.name }}</span>
+              <span class="mec-spec">{{ mec.specialty }}</span>
+            </div>
+            <div class="mec-badge">
+              <span class="active-badge">{{ mec.activeOrdersCount }} OT activas</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Delivery Notice Card -->
+      <div class="card side-card bg-gradient-cta">
+        <div class="cta-content">
+          <div class="cta-header">
+            <app-icon name="zap" [size]="24" extraClass="text-amber"></app-icon>
+            <h4>Portal Público de Seguimiento</h4>
+          </div>
+          <p>Tus clientes pueden consultar el estado en vivo de su vehículo, fotos del checklist y desglose de costos sin instalar ninguna aplicación.</p>
+          <a
+            routerLink="/seguimiento/TRK-9821"
+            target="_blank"
+            class="btn btn-secondary btn-sm cta-btn"
+          >
+            <span>Ver Portal Demo del Cliente</span>
+            <app-icon name="external-link" [size]="14"></app-icon>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Enviar Notificación al Cliente -->
+  <div *ngIf="selectedOrderForNotif() as order" class="modal-overlay" (click)="closeNotificationModal()">
+    <div class="modal-container" style="max-width: 550px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Enviar Aviso al Cliente</h3>
+          <p class="text-muted">Orden {{ order.orderNumber }} - {{ order.clientName }}</p>
+        </div>
+        <button class="close-btn" (click)="closeNotificationModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="notice-info-card">
+          <div class="info-line">
+            <span class="label">Vehículo:</span>
+            <span class="val">{{ order.vehicleDescription }} ({{ order.vehiclePlate }})</span>
+          </div>
+          <div class="info-line">
+            <span class="label">Estado Actual:</span>
+            <span class="val font-bold text-emerald">{{ statusMap[order.status].label }}</span>
+          </div>
+          <div class="info-line">
+            <span class="label">Saldo por Cobrar:</span>
+            <span class="val font-bold text-rose">${{ order.balance | number:'1.2-2' }} MXN</span>
+          </div>
+          <div class="info-line">
+            <span class="label">Teléfono Cliente:</span>
+            <span class="val">{{ order.clientPhone }}</span>
+          </div>
+          <div class="info-line">
+            <span class="label">Enlace de Seguimiento:</span>
+            <span class="val text-blue">{{ notifService.getTrackingUrl(order.trackingToken) }}</span>
+          </div>
+        </div>
+
+        <div class="preview-box">
+          <span class="preview-title">Vista previa del mensaje automatizado:</span>
+          <div class="preview-message">
+            Hola {{ order.clientName }} 👋, le informamos que su vehículo {{ order.vehicleDescription }} ({{ order.vehiclePlate }}) se encuentra en estado *{{ statusMap[order.status].label }}*. Puede consultar el seguimiento en vivo, evidencias fotográficas y balance en: {{ notifService.getTrackingUrl(order.trackingToken) }}
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeNotificationModal()">Cancelar</button>
+        <button class="btn btn-secondary" (click)="sendEmail(order)">
+          <app-icon name="mail" [size]="16"></app-icon>
+          <span>Enviar Correo</span>
+        </button>
+        <button class="btn btn-success" (click)="sendWhatsApp(order)">
+          <app-icon name="message-circle" [size]="16"></app-icon>
+          <span>Abrir WhatsApp Web</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

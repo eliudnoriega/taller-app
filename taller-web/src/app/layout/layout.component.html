@@ -1,0 +1,147 @@
+<div class="app-layout" [class.sidebar-collapsed]="isSidebarCollapsed()">
+  <!-- SIDEBAR -->
+  <aside class="app-sidebar">
+    <!-- Brand -->
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <app-icon name="wrench" [size]="22"></app-icon>
+        </div>
+        <div class="brand-info" *ngIf="!isSidebarCollapsed()">
+          <span class="brand-title">MELECSA</span>
+          <span class="brand-badge-version">Taller Cloud v2.5</span>
+        </div>
+      </div>
+      <button class="collapse-btn" (click)="toggleSidebar()" title="Colapsar menú">
+        <app-icon name="chevron-down" [size]="16"></app-icon>
+      </button>
+    </div>
+
+    <!-- Navigation List -->
+    <nav class="sidebar-nav">
+      <div class="nav-section-title" *ngIf="!isSidebarCollapsed()">Módulos Principales</div>
+      
+      <a
+        *ngFor="let item of navItems"
+        [routerLink]="item.route"
+        routerLinkActive="active"
+        class="nav-link"
+        [title]="item.label"
+      >
+        <div class="nav-icon">
+          <app-icon [name]="item.icon" [size]="20"></app-icon>
+        </div>
+        <div class="nav-text" *ngIf="!isSidebarCollapsed()">
+          <span class="nav-label">{{ item.label }}</span>
+          <span class="nav-sublabel">{{ item.sublabel }}</span>
+        </div>
+        <span
+          *ngIf="item.getBadge && item.getBadge() > 0 && !isSidebarCollapsed()"
+          class="nav-badge"
+          [ngClass]="item.badgeClass || ''"
+        >
+          {{ item.getBadge() }}
+        </span>
+      </a>
+    </nav>
+
+    <!-- Sidebar Footer / User Profile -->
+    <div class="sidebar-footer">
+      <div class="user-card" *ngIf="authService.currentUser() as user">
+        <img [src]="user.avatar" [alt]="user.name" class="user-avatar" />
+        <div class="user-details" *ngIf="!isSidebarCollapsed()">
+          <span class="user-name">{{ user.name }}</span>
+          <span class="user-role">{{ user.roleLabel }}</span>
+        </div>
+        <button
+          *ngIf="!isSidebarCollapsed()"
+          class="logout-icon-btn"
+          (click)="logout()"
+          title="Cerrar Sesión"
+        >
+          <app-icon name="log-out" [size]="18"></app-icon>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN AREA -->
+  <div class="main-wrapper">
+    <!-- TOP HEADER -->
+    <header class="app-header">
+      <div class="header-left">
+        <button class="mobile-toggle-btn" (click)="toggleSidebar()">
+          <app-icon name="clipboard-list" [size]="20"></app-icon>
+        </button>
+        <div class="global-search-bar">
+          <app-icon name="search" [size]="18" extraClass="search-icon"></app-icon>
+          <input
+            type="text"
+            [(ngModel)]="globalSearchText"
+            (keyup.enter)="onGlobalSearch()"
+            placeholder="Buscar por placa, orden o VIN (ej. ABC-1234)..."
+            class="search-input"
+          />
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Quick Action Buttons -->
+        <a routerLink="/ordenes" [queryParams]="{ nueva: true }" class="btn btn-primary btn-sm">
+          <app-icon name="plus" [size]="16"></app-icon>
+          <span>Nueva OT</span>
+        </a>
+        <a routerLink="/presupuestos" [queryParams]="{ nuevo: true }" class="btn btn-secondary btn-sm">
+          <app-icon name="file-text" [size]="16"></app-icon>
+          <span>Cotizar</span>
+        </a>
+
+        <!-- Notifications Bell -->
+        <div class="notif-wrapper">
+          <button class="icon-btn" (click)="toggleNotifications()" title="Notificaciones del Taller">
+            <app-icon name="bell" [size]="20"></app-icon>
+            <span *ngIf="notifService.unreadCount() > 0" class="notif-badge">
+              {{ notifService.unreadCount() }}
+            </span>
+          </button>
+
+          <!-- Notifications Dropdown Popover -->
+          <div class="notif-popover" *ngIf="isNotifOpen()">
+            <div class="notif-header">
+              <h4>Avisos y Alertas del Taller</h4>
+              <button class="text-btn" (click)="closeNotifications()">Cerrar</button>
+            </div>
+            <div class="notif-list">
+              <div
+                *ngFor="let notif of notifService.internalNotifications()"
+                class="notif-item"
+                [routerLink]="notif.link"
+                (click)="closeNotifications()"
+              >
+                <div class="notif-icon" [ngClass]="notif.type">
+                  <app-icon [name]="notif.type === 'stock_minimo' ? 'alert-triangle' : 'check-circle'" [size]="16"></app-icon>
+                </div>
+                <div class="notif-content">
+                  <span class="notif-item-title">{{ notif.title }}</span>
+                  <span class="notif-item-msg">{{ notif.message }}</span>
+                  <span class="notif-time">{{ notif.timestamp }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- User Quick Avatar -->
+        <div class="header-user-pill" *ngIf="authService.currentUser() as user">
+          <img [src]="user.avatar" [alt]="user.name" class="avatar-sm" />
+          <span class="header-user-name">{{ user.name.split(' ')[0] }}</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- CONTENT BODY (ROUTER OUTLET) -->
+    <main class="page-content" (click)="closeNotifications()">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

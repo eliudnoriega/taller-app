@@ -1,0 +1,380 @@
+<div class="cash-page">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="toast-notification">
+    <app-icon name="check-circle" [size]="18"></app-icon>
+    <span>{{ toastMessage() }}</span>
+  </div>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Caja, Pagos y Cuentas por Cobrar</h1>
+      <p class="page-subtitle">Control de anticipos, liquidación de órdenes y reportes financieros por método de pago y por mecánico</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="openPaymentModal()">
+        <app-icon name="plus" [size]="18"></app-icon>
+        <span>Registrar Pago / Cobro</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Financial KPI Overview -->
+  <div class="kpi-grid">
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-emerald-subtle">
+        <app-icon name="dollar-sign" [size]="24" extraClass="text-emerald"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Ingresos del Día</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value text-emerald">${{ financeService.todayIncome() | number:'1.2-2' }}</span>
+          <span class="kpi-sub">MXN</span>
+        </div>
+        <div class="kpi-meta">
+          <span>Caja abierta hoy</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-blue-subtle">
+        <app-icon name="credit-card" [size]="24" extraClass="text-blue"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Recaudación del Mes</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value">${{ financeService.monthlyIncome() | number:'1.2-2' }}</span>
+          <span class="kpi-sub">MXN</span>
+        </div>
+        <div class="kpi-meta">
+          <span>{{ financeService.transactions().length }} transacciones</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-card card" [class.border-danger]="workOrderService.accountsReceivableTotal() > 0">
+      <div class="kpi-icon-wrap bg-danger-subtle">
+        <app-icon name="alert-triangle" [size]="24" extraClass="text-danger"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Cuentas por Cobrar (Saldos)</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value text-danger">${{ workOrderService.accountsReceivableTotal() | number:'1.2-2' }}</span>
+          <span class="kpi-sub">MXN</span>
+        </div>
+        <div class="kpi-meta">
+          <button class="text-btn font-bold text-rose" (click)="activeTab.set('cuentas_cobrar')">
+            {{ financeService.accountsReceivable().length }} clientes con saldo &rarr;
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Primary Tabs: Transacciones / Cuentas por Cobrar / Reportes Financieros -->
+  <div class="main-tabs card">
+    <button
+      class="main-tab-btn"
+      [class.active]="activeTab() === 'transacciones'"
+      (click)="activeTab.set('transacciones')"
+    >
+      <app-icon name="credit-card" [size]="18"></app-icon>
+      <span>Registro de Cobros y Recibos</span>
+    </button>
+
+    <button
+      class="main-tab-btn"
+      [class.active]="activeTab() === 'cuentas_cobrar'"
+      (click)="activeTab.set('cuentas_cobrar')"
+    >
+      <app-icon name="phone" [size]="18"></app-icon>
+      <span>Cuentas por Cobrar</span>
+      <span class="tab-badge" *ngIf="financeService.accountsReceivable().length > 0">
+        {{ financeService.accountsReceivable().length }}
+      </span>
+    </button>
+
+    <button
+      class="main-tab-btn"
+      [class.active]="activeTab() === 'reportes'"
+      (click)="activeTab.set('reportes')"
+    >
+      <app-icon name="trending-up" [size]="18"></app-icon>
+      <span>Reportes: Por Método y Por Mecánico</span>
+    </button>
+  </div>
+
+  <!-- TAB 1: REGISTRO DE TRANSACCIONES -->
+  <div *ngIf="activeTab() === 'transacciones'" class="tab-content-area">
+    <div class="card table-card">
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Recibo / Fecha</th>
+              <th>Orden / Placa</th>
+              <th>Cliente</th>
+              <th>Concepto</th>
+              <th>Método de Pago</th>
+              <th>Mecánico Asignado</th>
+              <th>Monto Cobrado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let txn of financeService.transactions()">
+              <td>
+                <div class="cell-main-sub">
+                  <span class="font-bold text-primary">{{ txn.receiptNumber }}</span>
+                  <span class="text-xs text-muted">{{ txn.date }}</span>
+                </div>
+              </td>
+
+              <td>
+                <div class="cell-main-sub">
+                  <span class="font-bold">{{ txn.orderNumber }}</span>
+                  <span class="plate-badge-xs">{{ txn.vehiclePlate }}</span>
+                </div>
+              </td>
+
+              <td>
+                <span class="font-semibold">{{ txn.clientName }}</span>
+              </td>
+
+              <td>
+                <span class="text-xs text-slate-700">{{ txn.concept }}</span>
+              </td>
+
+              <td>
+                <span class="badge" [ngClass]="'badge-pay-' + txn.paymentMethod">
+                  {{ txn.paymentMethodLabel }}
+                </span>
+              </td>
+
+              <td>
+                <span class="text-xs text-muted">{{ txn.mechanicName }}</span>
+              </td>
+
+              <td>
+                <span class="font-bold text-emerald font-mono">${{ txn.amount | number:'1.2-2' }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: CUENTAS POR COBRAR -->
+  <div *ngIf="activeTab() === 'cuentas_cobrar'" class="tab-content-area">
+    <div class="card table-card">
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Orden / Placa</th>
+              <th>Cliente & Contacto</th>
+              <th>Total Orden</th>
+              <th>Anticipos Abonados</th>
+              <th>Saldo por Cobrar</th>
+              <th>Estado de la Unidad</th>
+              <th class="text-right">Acciones de Cobro</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of financeService.accountsReceivable()">
+              <td>
+                <div class="cell-main-sub">
+                  <span class="font-bold text-primary">{{ item.orderNumber }}</span>
+                  <span class="plate-badge-xs">{{ item.vehiclePlate }}</span>
+                </div>
+              </td>
+
+              <td>
+                <div class="cell-main-sub">
+                  <span class="font-semibold">{{ item.clientName }}</span>
+                  <span class="text-xs text-muted">{{ item.clientPhone }}</span>
+                </div>
+              </td>
+
+              <td>
+                <span class="font-mono">${{ item.totalOrder | number:'1.2-2' }}</span>
+              </td>
+
+              <td>
+                <span class="font-mono text-emerald">${{ item.advancePaid | number:'1.2-2' }}</span>
+              </td>
+
+              <td>
+                <span class="font-bold text-danger font-mono text-base">${{ item.pendingBalance | number:'1.2-2' }}</span>
+              </td>
+
+              <td>
+                <span class="badge" [ngClass]="'badge-' + item.status">
+                  {{ item.status.replace('_', ' ') }}
+                </span>
+              </td>
+
+              <td class="text-right">
+                <div class="action-buttons-cell">
+                  <button
+                    class="btn btn-success btn-sm"
+                    (click)="sendDebtReminderWhatsApp(item)"
+                    title="Enviar recordatorio formal de cobro por WhatsApp"
+                  >
+                    <app-icon name="message-circle" [size]="14"></app-icon>
+                    <span>Cobrar WhatsApp</span>
+                  </button>
+
+                  <button
+                    class="btn btn-primary btn-sm"
+                    (click)="openPaymentModal(item.workOrderId)"
+                    title="Liquidar o registrar abono"
+                  >
+                    <span>Abonar</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <tr *ngIf="financeService.accountsReceivable().length === 0">
+              <td colspan="7" class="text-center py-5 text-emerald font-bold">
+                ¡Excelente! No hay cuentas pendientes por cobrar en este momento.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: REPORTES FINANCIEROS (MÉTODO DE PAGO & POR MECÁNICO) -->
+  <div *ngIf="activeTab() === 'reportes'" class="tab-content-area">
+    <div class="report-grid">
+      <!-- Reporte 1: Por Método de Pago -->
+      <div class="card report-card">
+        <div class="report-header">
+          <app-icon name="credit-card" [size]="20" extraClass="text-blue"></app-icon>
+          <h3>Ingresos por Método de Pago</h3>
+        </div>
+        <p class="text-xs text-muted mb-3">Distribución porcentual y montos recaudados</p>
+
+        <div class="payment-methods-breakdown">
+          <div class="method-bar-row">
+            <div class="method-meta">
+              <span class="method-name">Transferencia Bancaria SPEI</span>
+              <span class="method-total font-mono font-bold">${{ financeService.paymentMethodBreakdown().transferencia.total | number:'1.2-2' }} ({{ financeService.paymentMethodBreakdown().transferencia.percentage }}%)</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill bg-blue" [style.width.%]="financeService.paymentMethodBreakdown().transferencia.percentage"></div>
+            </div>
+          </div>
+
+          <div class="method-bar-row">
+            <div class="method-meta">
+              <span class="method-name">Tarjetas de Débito / Crédito</span>
+              <span class="method-total font-mono font-bold">${{ financeService.paymentMethodBreakdown().tarjeta.total | number:'1.2-2' }} ({{ financeService.paymentMethodBreakdown().tarjeta.percentage }}%)</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill bg-purple" [style.width.%]="financeService.paymentMethodBreakdown().tarjeta.percentage"></div>
+            </div>
+          </div>
+
+          <div class="method-bar-row">
+            <div class="method-meta">
+              <span class="method-name">Efectivo en Caja</span>
+              <span class="method-total font-mono font-bold">${{ financeService.paymentMethodBreakdown().efectivo.total | number:'1.2-2' }} ({{ financeService.paymentMethodBreakdown().efectivo.percentage }}%)</span>
+            </div>
+            <div class="bar-track">
+              <div class="bar-fill bg-emerald" [style.width.%]="financeService.paymentMethodBreakdown().efectivo.percentage"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reporte 2: Por Mecánico y Comisiones -->
+      <div class="card report-card">
+        <div class="report-header">
+          <app-icon name="wrench" [size]="20" extraClass="text-amber"></app-icon>
+          <h3>Productividad y Comisiones por Mecánico</h3>
+        </div>
+        <p class="text-xs text-muted mb-3">Facturación generada por mano de obra y comisión devengada (18%)</p>
+
+        <div class="mechanics-performance-table">
+          <div *ngFor="let mec of financeService.mechanicPerformance()" class="mec-perf-row">
+            <div class="mec-main">
+              <span class="name font-bold">{{ mec.mechanicName }}</span>
+              <span class="orders-count">{{ mec.completedOrders }} órdenes finalizadas</span>
+            </div>
+            <div class="mec-finance">
+              <div class="fin-col">
+                <span class="k">Facturado M.O.:</span>
+                <span class="v font-bold">${{ mec.totalLaborBilled | number:'1.2-2' }}</span>
+              </div>
+              <div class="fin-col">
+                <span class="k">Comisión (18%):</span>
+                <span class="v text-emerald font-bold">${{ mec.commissionEarned | number:'1.2-2' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: REGISTRAR PAGO / ANTICIPO -->
+  <div *ngIf="isPaymentModalOpen()" class="modal-overlay" (click)="closePaymentModal()">
+    <div class="modal-container" style="max-width: 550px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Registrar Pago / Cobro</h3>
+          <p class="text-muted">Abonos, anticipos o liquidación de orden de trabajo</p>
+        </div>
+        <button class="close-btn" (click)="closePaymentModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Seleccionar Orden de Trabajo *</label>
+          <select [(ngModel)]="paymentForm.workOrderId" (change)="onOrderSelected()" class="form-select">
+            <option *ngFor="let ord of workOrderService.orders()" [value]="ord.id">
+              {{ ord.orderNumber }} - {{ ord.clientName }} ({{ ord.vehiclePlate }}) - Resta: ${{ ord.balance }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Monto a Cobrar ($ MXN) *</label>
+            <input type="number" [(ngModel)]="paymentForm.amount" min="1" class="form-control" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Método de Pago *</label>
+            <select [(ngModel)]="paymentForm.paymentMethod" class="form-select">
+              <option value="efectivo">Efectivo en Caja</option>
+              <option value="tarjeta">Tarjeta Débito / Crédito</option>
+              <option value="transferencia">Transferencia SPEI</option>
+              <option value="digital">Enlace Digital / QR</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Concepto del Pago</label>
+          <input type="text" [(ngModel)]="paymentForm.concept" class="form-control" placeholder="Ej. Anticipo refacciones, Liquidación..." />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closePaymentModal()">Cancelar</button>
+        <button class="btn btn-primary" (click)="savePayment()">
+          <app-icon name="check" [size]="18"></app-icon>
+          <span>Emitir Recibo de Pago</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

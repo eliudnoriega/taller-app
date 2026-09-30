@@ -1,0 +1,314 @@
+<div class="technicians-page">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="toast-notification">
+    <app-icon name="check-circle" [size]="18"></app-icon>
+    <span>{{ toastMessage() }}</span>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Administración de Técnicos y Mecánicos</h1>
+      <p class="page-subtitle">Gestión de especialistas del taller MELECSA, especialidades, estatus operativo y asignaciones</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-primary" (click)="openCreateModal()">
+        <app-icon name="plus" [size]="18"></app-icon>
+        <span>Nuevo Técnico</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Stats Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-blue-subtle text-blue">
+        <app-icon name="wrench" [size]="24"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Total Especialistas</span>
+        <span class="kpi-val">{{ techService.totalCount() }}</span>
+        <span class="kpi-sub">Plantilla técnica registrada</span>
+      </div>
+    </div>
+
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-emerald-subtle text-emerald">
+        <app-icon name="check-circle" [size]="24"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Técnicos Activos</span>
+        <span class="kpi-val text-emerald">{{ techService.activeCount() }}</span>
+        <span class="kpi-sub">Disponibles en bahía</span>
+      </div>
+    </div>
+
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-amber-subtle text-amber">
+        <app-icon name="clock" [size]="24"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">En Vacaciones / Permiso</span>
+        <span class="kpi-val text-amber">{{ techService.onVacationCount() }}</span>
+        <span class="kpi-sub">Ausencias temporales</span>
+      </div>
+    </div>
+
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-indigo-subtle text-indigo">
+        <app-icon name="car" [size]="24"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Órdenes Activas</span>
+        <span class="kpi-val text-indigo">{{ techService.totalActiveOrders() }}</span>
+        <span class="kpi-sub">Vehículos en reparación</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toolbar & Filters -->
+  <div class="toolbar card">
+    <div class="filter-tabs">
+      <button
+        class="tab-btn"
+        [class.active]="selectedStatusFilter() === 'todos'"
+        (click)="selectedStatusFilter.set('todos')"
+      >
+        <span>Todos</span>
+        <span class="count-pill">{{ techService.totalCount() }}</span>
+      </button>
+
+      <button
+        class="tab-btn"
+        [class.active]="selectedStatusFilter() === 'activo'"
+        (click)="selectedStatusFilter.set('activo')"
+      >
+        <span>Activos</span>
+        <span class="count-pill badge-activo">{{ techService.activeCount() }}</span>
+      </button>
+
+      <button
+        class="tab-btn"
+        [class.active]="selectedStatusFilter() === 'vacaciones'"
+        (click)="selectedStatusFilter.set('vacaciones')"
+      >
+        <span>En Vacaciones</span>
+        <span class="count-pill badge-vacaciones">{{ techService.onVacationCount() }}</span>
+      </button>
+
+      <button
+        class="tab-btn"
+        [class.active]="selectedStatusFilter() === 'inactivo'"
+        (click)="selectedStatusFilter.set('inactivo')"
+      >
+        <span>Inactivos</span>
+        <span class="count-pill badge-inactivo">{{ techService.totalCount() - techService.activeCount() - techService.onVacationCount() }}</span>
+      </button>
+    </div>
+
+    <div class="search-box">
+      <app-icon name="search" [size]="18" extraClass="search-icon"></app-icon>
+      <input
+        type="text"
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event)"
+        placeholder="Buscar técnico, especialidad, teléfono..."
+        class="form-control filter-input"
+      />
+    </div>
+  </div>
+
+  <!-- Technicians Grid -->
+  <div class="technicians-grid">
+    <div *ngFor="let tech of filteredTechnicians()" class="tech-card card">
+      <div class="tech-card-header">
+        <div class="tech-avatar-wrap">
+          <img [src]="tech.avatar" [alt]="tech.name" class="tech-avatar" />
+          <span class="status-indicator" [ngClass]="'status-' + tech.status" [title]="tech.status"></span>
+        </div>
+        <div class="tech-main-info">
+          <div class="tech-name-id">
+            <h3 class="tech-name">{{ tech.name }}</h3>
+            <span class="tech-id-badge">{{ tech.id }}</span>
+          </div>
+          <span class="tech-specialty">{{ tech.specialty }}</span>
+          <div class="tech-rating">
+            <span class="stars">⭐⭐⭐⭐⭐</span>
+            <span class="rating-val">{{ tech.rating || 5.0 }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tech-stats-strip">
+        <div class="stat-mini">
+          <span class="val font-bold text-blue">{{ tech.activeOrdersCount }}</span>
+          <span class="lbl">OTs Activas</span>
+        </div>
+        <div class="stat-mini">
+          <span class="val font-bold text-emerald">{{ tech.completedOrdersCount || 0 }}</span>
+          <span class="lbl">Completadas</span>
+        </div>
+        <div class="stat-mini">
+          <span class="val font-bold text-muted">{{ tech.hireDate || '2023-01' }}</span>
+          <span class="lbl">Ingreso</span>
+        </div>
+      </div>
+
+      <div class="tech-contact-info">
+        <div class="contact-line">
+          <app-icon name="phone" [size]="14" extraClass="text-muted"></app-icon>
+          <span>{{ tech.phone }}</span>
+        </div>
+        <div class="contact-line" *ngIf="tech.email">
+          <app-icon name="mail" [size]="14" extraClass="text-muted"></app-icon>
+          <span class="text-truncate">{{ tech.email }}</span>
+        </div>
+      </div>
+
+      <div class="tech-card-actions">
+        <button
+          type="button"
+          class="btn btn-outline-whatsapp btn-sm"
+          (click)="contactWhatsApp(tech)"
+          title="Enviar WhatsApp"
+        >
+          <app-icon name="message-circle" [size]="15"></app-icon>
+          <span>WhatsApp</span>
+        </button>
+
+        <div class="actions-right">
+          <!-- Status Dropdown or Quick Toggle -->
+          <select
+            [ngModel]="tech.status"
+            (ngModelChange)="toggleStatus(tech, $event)"
+            class="status-select-sm"
+            [ngClass]="'status-select-' + tech.status"
+          >
+            <option value="activo">Activo</option>
+            <option value="vacaciones">Vacaciones</option>
+            <option value="inactivo">Inactivo</option>
+          </select>
+
+          <button
+            type="button"
+            class="btn-icon-btn"
+            title="Editar técnico"
+            (click)="openEditModal(tech)"
+          >
+            <app-icon name="edit" [size]="15"></app-icon>
+          </button>
+
+          <button
+            type="button"
+            class="btn-icon-btn btn-danger-soft"
+            title="Eliminar técnico"
+            (click)="deleteTechnician(tech)"
+          >
+            <app-icon name="trash" [size]="15"></app-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="filteredTechnicians().length === 0" class="empty-state-card card col-span-full">
+      <app-icon name="wrench" [size]="36" extraClass="text-muted"></app-icon>
+      <h3>No se encontraron técnicos</h3>
+      <p class="text-muted">No hay especialistas que coincidan con los filtros o el término de búsqueda.</p>
+      <button class="btn btn-primary btn-sm mt-3" (click)="openCreateModal()">
+        <app-icon name="plus" [size]="16"></app-icon>
+        <span>Registrar Nuevo Técnico</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: REGISTRAR / EDITAR TÉCNICO -->
+  <div *ngIf="isModalOpen()" class="modal-overlay" (click)="closeModal()">
+    <div class="modal-container" style="max-width: 550px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>{{ isEditing() ? 'Editar Técnico Especialista' : 'Registrar Nuevo Técnico' }}</h3>
+          <p class="text-muted">MELECSA Taller Automotriz • Datos del personal operativo</p>
+        </div>
+        <button class="close-btn" (click)="closeModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Nombre Completo *</label>
+          <input
+            type="text"
+            [(ngModel)]="currentTech.name"
+            class="form-control"
+            placeholder="Ej. Roberto Valdés Cruz"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Especialidad Principal *</label>
+          <select [(ngModel)]="currentTech.specialty" class="form-select">
+            <option *ngFor="let spec of specialtiesList" [value]="spec">
+              {{ spec }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Teléfono (WhatsApp) *</label>
+            <input
+              type="text"
+              [(ngModel)]="currentTech.phone"
+              class="form-control"
+              placeholder="+52 55 1234 5678"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Correo Electrónico</label>
+            <input
+              type="email"
+              [(ngModel)]="currentTech.email"
+              class="form-control"
+              placeholder="tecnico@melecsa.com"
+            />
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Estado Operativo</label>
+            <select [(ngModel)]="currentTech.status" class="form-select">
+              <option value="activo">Activo (Disponible en bahía)</option>
+              <option value="vacaciones">En Vacaciones / Permiso</option>
+              <option value="inactivo">Inactivo / Fuera de servicio</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Calificación Inicial (1 a 5)</label>
+            <input
+              type="number"
+              step="0.1"
+              min="1"
+              max="5"
+              [(ngModel)]="currentTech.rating"
+              class="form-control"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveTechnician()">
+          <app-icon name="check" [size]="18"></app-icon>
+          <span>{{ isEditing() ? 'Guardar Cambios' : 'Registrar Técnico' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,14 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Redirigir encabezados de autorización si Apache los suprime
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Si el archivo o directorio solicitado existe físicamente, servirlo directamente
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+
+    # De lo contrario, enviar toda la solicitud a index.php
+    RewriteRule ^ index.php [QSA,L]
+</IfModule>

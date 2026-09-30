@@ -1,0 +1,188 @@
+<div class="tracking-portal">
+  <!-- Top brand bar -->
+  <header class="tracking-top-bar">
+    <div class="brand">
+      <div class="brand-icon">
+        <app-icon name="wrench" [size]="20"></app-icon>
+      </div>
+      <div>
+        <span class="brand-name">MELECSA</span>
+        <span class="brand-sub">Portal de Seguimiento para Clientes</span>
+      </div>
+    </div>
+    <a routerLink="/login" class="back-link">
+      <span>Acceso Personal Taller &rarr;</span>
+    </a>
+  </header>
+
+  <main class="tracking-body" *ngIf="order() as ord">
+    <!-- Vehicle & Status Banner -->
+    <div class="hero-status-card">
+      <div class="hero-left">
+        <span class="live-pill">
+          <span class="dot-live"></span>
+          SEGUIMIENTO EN TIEMPO REAL
+        </span>
+        <h1 class="vehicle-heading">{{ ord.vehicleDescription }}</h1>
+        <div class="plate-row">
+          <span class="plate-lg">{{ ord.vehiclePlate }}</span>
+          <span class="token-tag">Token: {{ ord.trackingToken }}</span>
+          <span class="order-tag">{{ ord.orderNumber }}</span>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="status-box">
+          <span class="status-title">Estado de tu Vehículo:</span>
+          <span class="status-name" [ngClass]="'text-' + ord.status">
+            {{ ord.status.replace('_', ' ').toUpperCase() }}
+          </span>
+          <span class="delivery-est">Estimada de entrega: {{ ord.estimatedDeliveryDate }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Progress Stepper -->
+    <div class="stepper-card card">
+      <h3>Etapas del Servicio</h3>
+      <div class="stepper-track">
+        <div
+          *ngFor="let s of steps; let i = index"
+          class="step-item"
+          [class.step-completed]="isStepActive(s.key)"
+          [class.step-current]="isCurrentStep(s.key)"
+        >
+          <div class="step-circle">
+            <app-icon [name]="s.icon" [size]="18"></app-icon>
+          </div>
+          <div class="step-info">
+            <span class="step-title">{{ s.label }}</span>
+            <span class="step-desc">{{ s.desc }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2-cols">
+      <!-- Left: Checklist & Photographs Taken on Arrival -->
+      <div class="card detail-card">
+        <h3>
+          <app-icon name="clipboard-list" [size]="18" extraClass="text-blue"></app-icon>
+          <span>Checklist de Recepción & Evidencias</span>
+        </h3>
+        <p class="text-xs text-muted mb-3">Registrado durante el ingreso del vehículo por el asesor de servicio</p>
+
+        <div class="fuel-widget">
+          <app-icon name="fuel" [size]="18" extraClass="text-amber"></app-icon>
+          <span>Nivel de combustible verificado: <strong>{{ ord.checklist.fuelLevel }}%</strong></span>
+        </div>
+
+        <div class="checklist-items-list">
+          <div class="chk-item-read">
+            <app-icon [name]="ord.checklist.spareTire ? 'check-circle' : 'x'" [size]="16" [extraClass]="ord.checklist.spareTire ? 'text-emerald' : 'text-danger'"></app-icon>
+            <span>Rueda de refacción presente</span>
+          </div>
+          <div class="chk-item-read">
+            <app-icon [name]="ord.checklist.hydraulicJack ? 'check-circle' : 'x'" [size]="16" [extraClass]="ord.checklist.hydraulicJack ? 'text-emerald' : 'text-danger'"></app-icon>
+            <span>Gato hidráulico presente</span>
+          </div>
+          <div class="chk-item-read">
+            <app-icon [name]="ord.checklist.vehicleDocuments ? 'check-circle' : 'x'" [size]="16" [extraClass]="ord.checklist.vehicleDocuments ? 'text-emerald' : 'text-danger'"></app-icon>
+            <span>Documentos en guantera resguardados</span>
+          </div>
+        </div>
+
+        <div class="body-notes-box">
+          <strong>Inspección de Carrocería al recibir:</strong>
+          <p>{{ ord.checklist.bodyNotes }}</p>
+        </div>
+
+        <!-- Evidencias fotográficas -->
+        <div class="photos-block mt-3" *ngIf="ord.checklist.photos.length > 0">
+          <span class="sub-label">Fotografías tomadas en taller:</span>
+          <div class="photos-grid">
+            <a *ngFor="let photo of ord.checklist.photos" [href]="photo" target="_blank" class="photo-card-link">
+              <img [src]="photo" alt="Evidencia vehículo" />
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Authorized Work & Payment Status -->
+      <div class="card detail-card">
+        <h3>
+          <app-icon name="dollar-sign" [size]="18" extraClass="text-emerald"></app-icon>
+          <span>Trabajos Autorizados & Resumen</span>
+        </h3>
+        <p class="text-xs text-muted mb-3">Técnico responsable: <strong>{{ ord.mechanicName }}</strong></p>
+
+        <div class="order-items-client-list">
+          <div *ngFor="let itm of ord.items" class="client-item-row">
+            <div class="itm-left">
+              <span class="itm-desc">{{ itm.description }}</span>
+              <span class="itm-type text-xs text-muted">{{ itm.type === 'repuesto' ? 'Repuesto nuevo' : 'Mano de obra' }} (Cant: {{ itm.quantity }})</span>
+            </div>
+            <span class="itm-price font-bold">${{ itm.total | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <div class="financial-summary-client">
+          <div class="fin-row">
+            <span>Subtotal:</span>
+            <span>${{ ord.subtotal | number:'1.2-2' }}</span>
+          </div>
+          <div class="fin-row">
+            <span>IVA (16%):</span>
+            <span>${{ ord.tax | number:'1.2-2' }}</span>
+          </div>
+          <div class="fin-row total-client">
+            <span>Total del Servicio:</span>
+            <span>${{ ord.total | number:'1.2-2' }} MXN</span>
+          </div>
+          <div class="fin-row text-emerald">
+            <span>Anticipos Abonados:</span>
+            <span>-${{ ord.advancePaid | number:'1.2-2' }}</span>
+          </div>
+          <div class="fin-row balance-client" [class.text-danger]="ord.balance > 0">
+            <span>Saldo Pendiente al Retirar:</span>
+            <span>${{ ord.balance | number:'1.2-2' }} MXN</span>
+          </div>
+        </div>
+
+        <!-- Contact Advisor CTA -->
+        <div class="advisor-cta mt-4">
+          <button class="btn btn-success btn-block" (click)="contactAdvisorWhatsApp()">
+            <app-icon name="message-circle" [size]="18"></app-icon>
+            <span>Contactar Asesor por WhatsApp</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bitácora y Notas del Taller para el Cliente -->
+    <div class="card detail-card mt-4" *ngIf="ord.statusComments && ord.statusComments.length > 0">
+      <h3>
+        <app-icon name="message-square" [size]="18" extraClass="text-blue"></app-icon>
+        <span>Bitácora de Notas y Avance Técnico del Taller</span>
+      </h3>
+      <p class="text-xs text-muted mb-3">Actualizaciones y notas técnicas registradas en tiempo real para tu vehículo</p>
+
+      <div class="client-comments-list">
+        <div *ngFor="let c of ord.statusComments" class="client-comment-card">
+          <div class="client-comment-head">
+            <span class="client-status-badge" [ngClass]="getStatusBadgeClass(c.status)">
+              <app-icon [name]="getStatusIcon(c.status)" [size]="12"></app-icon>
+              <span>{{ getStatusLabel(c.status) }}</span>
+            </span>
+            <div class="client-comment-meta">
+              <span class="comment-author">{{ c.author }}</span>
+              <span>•</span>
+              <span class="comment-time">{{ c.timestamp }}</span>
+            </div>
+          </div>
+          <p class="client-comment-text">{{ c.comment }}</p>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

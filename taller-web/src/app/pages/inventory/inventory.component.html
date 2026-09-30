@@ -1,0 +1,795 @@
+<div class="inventory-page">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="toast-notification">
+    <app-icon name="check-circle" [size]="18"></app-icon>
+    <span>{{ toastMessage() }}</span>
+  </div>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Control de Inventario y Repuestos</h1>
+      <p class="page-subtitle">Gestión de catálogo en vivo, kardex de movimientos, alertas de stock mínimo y fotografía en Base64</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" (click)="syncData()" [disabled]="isSyncing()" title="Sincronizar con backend PHP">
+        <app-icon name="refresh-cw" [size]="16" [extraClass]="isSyncing() ? 'spin' : ''"></app-icon>
+        <span>{{ isSyncing() ? 'Sincronizando...' : 'Sincronizar' }}</span>
+      </button>
+
+      <button class="btn btn-primary" (click)="openCreateModal()">
+        <app-icon name="plus" [size]="18"></app-icon>
+        <span>Nuevo Producto</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Financial & Stock Metric Cards -->
+  <div class="kpi-grid">
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-blue-subtle">
+        <app-icon name="package" [size]="24" extraClass="text-blue"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Total Ítems en Catálogo</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value">{{ inventoryService.items().length }}</span>
+          <span class="kpi-sub">referencias</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alert KPI -->
+    <div class="kpi-card card" [class.border-danger]="inventoryService.lowStockCount() > 0">
+      <div class="kpi-icon-wrap bg-danger-subtle">
+        <app-icon name="alert-triangle" [size]="24" extraClass="text-danger"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Stock Mínimo / Crítico</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value text-danger">{{ inventoryService.lowStockCount() }}</span>
+          <span class="kpi-sub">por reponer</span>
+        </div>
+        <div class="kpi-meta">
+          <button
+            class="text-btn font-bold text-rose"
+            (click)="onlyLowStock.set(!onlyLowStock())"
+          >
+            {{ onlyLowStock() ? 'Mostrar todos' : 'Filtrar solo críticos' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-purple-subtle">
+        <app-icon name="dollar-sign" [size]="24" extraClass="text-purple"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Valoración a Costo</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value">${{ inventoryService.totalInventoryCost() | number:'1.2-2' }}</span>
+        </div>
+        <div class="kpi-meta">
+          <span>Venta est.: ${{ inventoryService.totalInventorySaleValue() | number:'1.2-2' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-card card">
+      <div class="kpi-icon-wrap bg-emerald-subtle">
+        <app-icon name="trending-up" [size]="24" extraClass="text-emerald"></app-icon>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Margen Bruto Estimado</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value text-emerald">+{{ inventoryService.estimatedInventoryMargin() }}%</span>
+        </div>
+        <div class="kpi-meta">
+          <span>Rentabilidad promedio</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Banner de Alerta de Stock Crítico -->
+  <div *ngIf="inventoryService.lowStockCount() > 0" class="alert-banner-stock">
+    <div class="banner-left">
+      <app-icon name="alert-triangle" [size]="22"></app-icon>
+      <div>
+        <strong>¡Atención! Hay {{ inventoryService.lowStockCount() }} insumos por debajo del stock de seguridad</strong>
+        <p class="banner-sub" *ngIf="inventoryService.lowStockItems().length > 0">
+          Insumos afectados: {{ inventoryService.lowStockItems()[0].name }}
+          <span *ngIf="inventoryService.lowStockItems().length > 1">, {{ inventoryService.lowStockItems()[1].name }}</span>...
+        </p>
+      </div>
+    </div>
+    <button class="btn btn-warning btn-sm" (click)="onlyLowStock.set(true)">
+      Ver Insumos Críticos
+    </button>
+  </div>
+
+  <!-- View Mode Switch: Stock vs Historial de Movimientos / Kardex -->
+  <div class="view-switch-row">
+    <div class="sub-tabs">
+      <button
+        class="sub-tab-btn"
+        [class.active]="activeTab() === 'stock'"
+        (click)="activeTab.set('stock')"
+      >
+        <app-icon name="package" [size]="16"></app-icon>
+        <span>Inventario Activo (Catálogo)</span>
+      </button>
+
+      <button
+        class="sub-tab-btn"
+        [class.active]="activeTab() === 'movimientos'"
+        (click)="activeTab.set('movimientos')"
+      >
+        <app-icon name="history" [size]="16"></app-icon>
+        <span>Kardex & Trazabilidad de Descargas OT</span>
+        <span class="tab-badge-count">{{ inventoryService.movements().length }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TAB 1: INVENTARIO ACTIVO (CATÁLOGO) -->
+  <!-- ========================================================================= -->
+  <div *ngIf="activeTab() === 'stock'" class="stock-tab-content">
+    <!-- Filter Toolbar -->
+    <div class="toolbar card">
+      <div class="category-pills">
+        <button
+          *ngFor="let cat of categories()"
+          class="cat-btn"
+          [class.active]="selectedCategory() === cat"
+          (click)="selectedCategory.set(cat)"
+        >
+          {{ cat === 'todas' ? 'Todas las Categorías' : cat }}
+        </button>
+      </div>
+
+      <div class="search-box">
+        <app-icon name="search" [size]="18" extraClass="search-icon"></app-icon>
+        <input
+          type="text"
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+          placeholder="Buscar repuesto por nombre, SKU o ubicación..."
+          class="form-control filter-input"
+        />
+      </div>
+    </div>
+
+    <!-- Stock Table -->
+    <div class="card table-card">
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Foto / Refacción</th>
+              <th>Categoría</th>
+              <th>Stock Actual</th>
+              <th>Stock Mínimo</th>
+              <th>Costo Compra</th>
+              <th>Precio Venta</th>
+              <th>Margen (%)</th>
+              <th>Ubicación</th>
+              <th class="text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredItems" [class.row-alert]="item.stock <= item.minStock || item.es_alerta_stock">
+              <td>
+                <div class="product-cell-wrap">
+                  <div
+                    class="product-thumb-box"
+                    (click)="item.foto_producto ? openPhotoPreview(item.foto_producto, item.name) : null"
+                    [class.clickable]="!!item.foto_producto"
+                    title="{{ item.foto_producto ? 'Click para ampliar fotografía' : 'Sin imagen' }}"
+                  >
+                    <img *ngIf="item.foto_producto" [src]="item.foto_producto" [alt]="item.name" class="product-thumb-img" />
+                    <div *ngIf="!item.foto_producto" class="product-thumb-placeholder">
+                      <app-icon name="package" [size]="18"></app-icon>
+                    </div>
+                  </div>
+                  <div class="cell-main-sub">
+                    <span class="main-text font-bold">{{ item.name }}</span>
+                    <span class="code-badge">{{ item.code }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <span class="cat-tag">{{ item.category }}</span>
+              </td>
+
+              <td>
+                <div class="stock-display">
+                  <span class="stock-qty" [class.text-danger]="item.stock <= item.minStock || item.es_alerta_stock">
+                    {{ item.stock }} {{ item.unit }}s
+                  </span>
+                  <span *ngIf="item.stock <= item.minStock || item.es_alerta_stock" class="badge-critical">
+                    ¡Crítico!
+                  </span>
+                </div>
+              </td>
+
+              <td>
+                <span class="min-stock-text">{{ item.minStock }} {{ item.unit }}s</span>
+              </td>
+
+              <td>
+                <span class="font-mono text-muted">${{ item.costPrice | number:'1.2-2' }}</span>
+              </td>
+
+              <td>
+                <span class="font-mono font-bold text-dark">${{ item.salePrice | number:'1.2-2' }}</span>
+              </td>
+
+              <td>
+                <div class="margin-pill">
+                  <span class="margin-pct">+{{ calculateMargin(item.costPrice, item.salePrice) }}%</span>
+                  <span class="margin-abs text-xs text-muted">+${{ (item.salePrice - item.costPrice) | number:'1.2-2' }}</span>
+                </div>
+              </td>
+
+              <td>
+                <span class="location-badge">{{ item.location || 'Almacén Central' }}</span>
+              </td>
+
+              <td class="text-right actions-cell">
+                <div class="btn-group-row">
+                  <button class="btn btn-secondary btn-sm" (click)="openAdjustModal(item)" title="Entrada / Ajuste de Stock">
+                    <app-icon name="plus" [size]="14"></app-icon>
+                    <span>Ajustar</span>
+                  </button>
+                  <button class="btn btn-ghost btn-sm" (click)="openEditModal(item)" title="Editar producto y foto">
+                    <app-icon name="edit" [size]="14"></app-icon>
+                  </button>
+                </div>
+              </td>
+            </tr>
+
+            <tr *ngIf="filteredItems.length === 0">
+              <td colspan="9" class="text-center py-8 text-muted">
+                <app-icon name="package" [size]="32" extraClass="text-slate mb-2"></app-icon>
+                <p>No se encontraron productos o repuestos con los filtros aplicados.</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TAB 2: KARDEX & HISTORIAL DE MOVIMIENTOS -->
+  <!-- ========================================================================= -->
+  <div *ngIf="activeTab() === 'movimientos'" class="movements-tab-content">
+    <div class="kardex-toolbar card mb-4">
+      <div class="kardex-filter-group">
+        <label class="form-label text-xs font-bold text-muted mb-1">Filtrar por Insumo / Refacción:</label>
+        <select
+          [ngModel]="selectedKardexRepuestoId()"
+          (ngModelChange)="onKardexRepuestoChange($event)"
+          class="form-select kardex-select"
+        >
+          <option [ngValue]="0">Todos los Repuestos (Kardex General del Taller)</option>
+          <option *ngFor="let item of inventoryService.items()" [ngValue]="item.numericId">
+            {{ item.name }} ({{ item.code }}) - Stock actual: {{ item.stock }}
+          </option>
+        </select>
+      </div>
+
+      <div class="kardex-actions">
+        <button class="btn btn-secondary btn-sm" (click)="onKardexRepuestoChange(selectedKardexRepuestoId())">
+          <app-icon name="refresh-cw" [size]="14"></app-icon>
+          <span>Refrescar Kardex</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="card table-card">
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID Mov.</th>
+              <th>Tipo de Operación</th>
+              <th>Refacción / Insumo</th>
+              <th>Cantidad</th>
+              <th>Stock Anterior ➔ Posterior</th>
+              <th>Orden de Trabajo</th>
+              <th>Fecha y Hora</th>
+              <th>Motivo & Responsable</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of filteredMovements">
+              <td>
+                <span class="font-mono font-bold text-xs">#{{ m.id }}</span>
+              </td>
+
+              <td>
+                <span
+                  class="badge"
+                  [ngClass]="{
+                    'badge-esperando_repuestos': m.tipo_movimiento === 'SALIDA_OT',
+                    'badge-listo_entrega': m.tipo_movimiento === 'ENTRADA_COMPRA' || m.tipo_movimiento === 'AJUSTE_POSITIVO',
+                    'badge-diagnostico': m.tipo_movimiento === 'AJUSTE_NEGATIVO',
+                    'badge-en_progreso': m.tipo_movimiento === 'DEVOLUCION'
+                  }"
+                >
+                  <ng-container [ngSwitch]="m.tipo_movimiento">
+                    <span *ngSwitchCase="'SALIDA_OT'">Descarga Automática OT</span>
+                    <span *ngSwitchCase="'ENTRADA_COMPRA'">Entrada / Compra</span>
+                    <span *ngSwitchCase="'AJUSTE_POSITIVO'">Ajuste Físico (+)</span>
+                    <span *ngSwitchCase="'AJUSTE_NEGATIVO'">Merma / Ajuste (-)</span>
+                    <span *ngSwitchCase="'DEVOLUCION'">Devolución</span>
+                    <span *ngSwitchDefault>{{ m.tipo_movimiento || 'Ajuste' }}</span>
+                  </ng-container>
+                </span>
+              </td>
+
+              <td>
+                <strong class="text-dark">{{ m.itemName }}</strong>
+              </td>
+
+              <td>
+                <span class="font-bold" [class.text-danger]="m.tipo_movimiento === 'SALIDA_OT' || m.tipo_movimiento === 'AJUSTE_NEGATIVO'" [class.text-emerald]="m.tipo_movimiento === 'ENTRADA_COMPRA' || m.tipo_movimiento === 'AJUSTE_POSITIVO'">
+                  {{ (m.tipo_movimiento === 'SALIDA_OT' || m.tipo_movimiento === 'AJUSTE_NEGATIVO') ? '-' : '+' }}{{ m.quantity }}
+                </span>
+              </td>
+
+              <td>
+                <span class="font-mono text-xs text-muted" *ngIf="m.stock_anterior !== undefined && m.stock_posterior !== undefined">
+                  {{ m.stock_anterior }} ➔ <strong class="text-dark">{{ m.stock_posterior }}</strong>
+                </span>
+                <span class="text-muted text-xs" *ngIf="m.stock_anterior === undefined">-</span>
+              </td>
+
+              <td>
+                <span *ngIf="m.workOrderId || m.numero_ot" class="ot-link-badge">
+                  {{ m.numero_ot || m.workOrderId }}
+                </span>
+                <span *ngIf="!m.workOrderId && !m.numero_ot" class="text-muted text-xs">-</span>
+              </td>
+
+              <td>
+                <span class="text-muted text-xs">{{ m.date }}</span>
+              </td>
+
+              <td>
+                <div class="cell-main-sub">
+                  <span class="main-text text-xs">{{ m.reason }}</span>
+                  <span class="sub-text text-xs text-muted">Por: {{ m.performedBy || 'Sistema' }}</span>
+                </div>
+              </td>
+            </tr>
+
+            <tr *ngIf="filteredMovements.length === 0">
+              <td colspan="8" class="text-center py-8 text-muted">
+                <app-icon name="history" [size]="32" extraClass="text-slate mb-2"></app-icon>
+                <p>No se registran movimientos en el kardex para la selección actual.</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: ENTRADA / AJUSTE DE STOCK MANUAL -->
+  <!-- ========================================================================= -->
+  <div *ngIf="isAdjustModalOpen()" class="modal-overlay" (click)="closeAdjustModal()">
+    <div class="modal-container" style="max-width: 520px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Entrada / Ajuste de Stock</h3>
+          <p class="text-muted">{{ adjustModel.itemName }} ({{ adjustModel.itemCode }})</p>
+        </div>
+        <button class="close-btn" (click)="closeAdjustModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="stock-status-callout mb-4">
+          <div class="stock-status-info">
+            <span class="text-xs text-muted">Stock actual registrado:</span>
+            <strong class="stock-number">{{ adjustModel.currentStock }} {{ adjustModel.unit }}s</strong>
+          </div>
+        </div>
+
+        <div class="form-group mb-3">
+          <label class="form-label">Tipo de Movimiento *</label>
+          <select [(ngModel)]="adjustModel.tipo_movimiento" class="form-select">
+            <option value="ENTRADA_COMPRA">Entrada por Compra a Proveedor (+)</option>
+            <option value="AJUSTE_POSITIVO">Ajuste por Conteo Físico (+)</option>
+            <option value="AJUSTE_NEGATIVO">Merma / Ajuste por Conteo Físico (-)</option>
+            <option value="DEVOLUCION">Devolución al Inventario (+)</option>
+          </select>
+        </div>
+
+        <div class="form-grid-2 mb-3">
+          <div class="form-group">
+            <label class="form-label">Cantidad (Unidades) *</label>
+            <input type="number" [(ngModel)]="adjustModel.cantidad" min="1" class="form-control font-bold" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Costo Unitario ($)</label>
+            <input type="number" [(ngModel)]="adjustModel.costo_unitario" min="0" step="0.5" class="form-control" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Motivo o Referencia *</label>
+          <input
+            type="text"
+            [(ngModel)]="adjustModel.motivo"
+            class="form-control"
+            placeholder="Ej. Factura F-9901 Distribuidora Norte o Conteo mensual"
+          />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeAdjustModal()">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveAdjust()">
+          <app-icon name="check" [size]="16"></app-icon>
+          <span>Registrar Movimiento</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: NUEVO PRODUCTO / REFACCIÓN -->
+  <!-- ========================================================================= -->
+  <div *ngIf="isCreateModalOpen()" class="modal-overlay" (click)="closeCreateModal()">
+    <div class="modal-container" style="max-width: 680px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Nuevo Producto / Refacción</h3>
+          <p class="text-muted">Añadir insumo al inventario con fotografía en Base64</p>
+        </div>
+        <button class="close-btn" (click)="closeCreateModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Photo Picker Box (Base64) -->
+        <div class="photo-picker-section mb-4">
+          <label class="form-label mb-2">Fotografía del Producto (Base64)</label>
+          <div class="photo-picker-row">
+            <div class="photo-preview-wrap">
+              <img *ngIf="newItem.foto_producto" [src]="newItem.foto_producto" alt="Vista previa" class="photo-preview-img" />
+              <div *ngIf="!newItem.foto_producto" class="photo-preview-empty">
+                <app-icon name="image" [size]="32" extraClass="text-slate"></app-icon>
+                <span class="text-xs text-muted">Sin fotografía</span>
+              </div>
+            </div>
+
+            <div class="photo-picker-actions">
+              <input type="file" #fileInputNew style="display: none" accept="image/*" (change)="onFileSelected($event, 'new')" />
+              
+              <button class="btn btn-secondary btn-sm" (click)="fileInputNew.click()">
+                <app-icon name="upload" [size]="14"></app-icon>
+                <span>Subir Archivo</span>
+              </button>
+
+              <button class="btn btn-secondary btn-sm" (click)="openCameraModal('new')">
+                <app-icon name="camera" [size]="14"></app-icon>
+                <span>Tomar Foto con Cámara</span>
+              </button>
+
+              <button *ngIf="newItem.foto_producto" class="btn btn-ghost btn-sm text-danger" (click)="removePhoto('new')">
+                <app-icon name="trash" [size]="14"></app-icon>
+                <span>Eliminar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Código SKU *</label>
+            <input type="text" [(ngModel)]="newItem.code" class="form-control uppercase font-mono font-bold" placeholder="Ej. FRE-PAS-002" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Categoría *</label>
+            <select [(ngModel)]="newItem.category" class="form-select">
+              <option *ngFor="let cat of inventoryService.categories()" [value]="cat.nombre">
+                {{ cat.nombre }}
+              </option>
+              <option value="nueva">+ Crear nueva categoría...</option>
+            </select>
+          </div>
+        </div>
+
+        <div *ngIf="newItem.category === 'nueva'" class="form-group mt-2">
+          <label class="form-label text-blue">Nombre de la Nueva Categoría *</label>
+          <input type="text" [(ngModel)]="newItem.nueva_categoria" class="form-control border-blue" placeholder="Ej. Sistema de Enfriamiento y Radiadores" />
+        </div>
+
+        <div class="form-group mt-3">
+          <label class="form-label">Nombre del Producto o Refacción *</label>
+          <input type="text" [(ngModel)]="newItem.name" class="form-control" placeholder="Ej. Balatas Cerámicas Traseras Premium" />
+        </div>
+
+        <div class="form-group mt-3">
+          <label class="form-label">Descripción Técnica (Opcional)</label>
+          <textarea [(ngModel)]="newItem.descripcion" class="form-control" rows="2" placeholder="Especificaciones de compatibilidad, marca, modelo..."></textarea>
+        </div>
+
+        <div class="form-grid-2 mt-3">
+          <div class="form-group">
+            <label class="form-label">Stock Inicial</label>
+            <input type="number" [(ngModel)]="newItem.stock" min="0" class="form-control font-bold" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Stock Mínimo (Alerta de reposición)</label>
+            <input type="number" [(ngModel)]="newItem.minStock" min="1" class="form-control" />
+          </div>
+        </div>
+
+        <div class="form-grid-2 mt-3">
+          <div class="form-group">
+            <label class="form-label">Costo de Compra ($)</label>
+            <input type="number" [(ngModel)]="newItem.costPrice" min="0" step="0.5" class="form-control font-mono" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Precio de Venta ($)</label>
+            <input type="number" [(ngModel)]="newItem.salePrice" min="0" step="0.5" class="form-control font-mono font-bold" />
+          </div>
+        </div>
+
+        <div class="form-grid-2 mt-3">
+          <div class="form-group">
+            <label class="form-label">Ubicación en Almacén</label>
+            <input type="text" [(ngModel)]="newItem.location" class="form-control" placeholder="Ej. E-01-A, Gaveta 3" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Unidad de Medida</label>
+            <input type="text" [(ngModel)]="newItem.unit" class="form-control" placeholder="Pieza, Litro, Juego, Botella..." />
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeCreateModal()">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveNewItem()">
+          <app-icon name="check" [size]="16"></app-icon>
+          <span>Guardar Insumo</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: EDITAR PRODUCTO / REFACCIÓN -->
+  <!-- ========================================================================= -->
+  <div *ngIf="isEditModalOpen()" class="modal-overlay" (click)="closeEditModal()">
+    <div class="modal-container" style="max-width: 680px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Editar Producto / Refacción</h3>
+          <p class="text-muted">{{ editItem.code }} - {{ editItem.name }}</p>
+        </div>
+        <button class="close-btn" (click)="closeEditModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Photo Picker Box (Base64) -->
+        <div class="photo-picker-section mb-4">
+          <label class="form-label mb-2">Fotografía del Producto (Base64)</label>
+          <div class="photo-picker-row">
+            <div class="photo-preview-wrap">
+              <img *ngIf="editItem.foto_producto" [src]="editItem.foto_producto" alt="Vista previa" class="photo-preview-img" />
+              <div *ngIf="!editItem.foto_producto" class="photo-preview-empty">
+                <app-icon name="image" [size]="32" extraClass="text-slate"></app-icon>
+                <span class="text-xs text-muted">Sin fotografía</span>
+              </div>
+            </div>
+
+            <div class="photo-picker-actions">
+              <input type="file" #fileInputEdit style="display: none" accept="image/*" (change)="onFileSelected($event, 'edit')" />
+              
+              <button class="btn btn-secondary btn-sm" (click)="fileInputEdit.click()">
+                <app-icon name="upload" [size]="14"></app-icon>
+                <span>Subir Archivo</span>
+              </button>
+
+              <button class="btn btn-secondary btn-sm" (click)="openCameraModal('edit')">
+                <app-icon name="camera" [size]="14"></app-icon>
+                <span>Tomar Foto con Cámara</span>
+              </button>
+
+              <button *ngIf="editItem.foto_producto" class="btn btn-ghost btn-sm text-danger" (click)="removePhoto('edit')">
+                <app-icon name="trash" [size]="14"></app-icon>
+                <span>Eliminar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label class="form-label">Código SKU</label>
+            <input type="text" [value]="editItem.code" disabled class="form-control uppercase font-mono bg-slate-subtle" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Categoría</label>
+            <select [(ngModel)]="editItem.category" class="form-select">
+              <option *ngFor="let cat of inventoryService.categories()" [value]="cat.nombre">
+                {{ cat.nombre }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group mt-3">
+          <label class="form-label">Nombre del Producto o Refacción *</label>
+          <input type="text" [(ngModel)]="editItem.name" class="form-control" />
+        </div>
+
+        <div class="form-group mt-3">
+          <label class="form-label">Descripción Técnica</label>
+          <textarea [(ngModel)]="editItem.descripcion" class="form-control" rows="2"></textarea>
+        </div>
+
+        <div class="form-grid-2 mt-3">
+          <div class="form-group">
+            <label class="form-label">Costo de Compra ($)</label>
+            <input type="number" [(ngModel)]="editItem.costPrice" min="0" step="0.5" class="form-control font-mono" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Precio de Venta ($)</label>
+            <input type="number" [(ngModel)]="editItem.salePrice" min="0" step="0.5" class="form-control font-mono font-bold" />
+          </div>
+        </div>
+
+        <div class="form-grid-2 mt-3">
+          <div class="form-group">
+            <label class="form-label">Stock Mínimo (Alerta de reposición)</label>
+            <input type="number" [(ngModel)]="editItem.minStock" min="1" class="form-control" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Ubicación en Almacén</label>
+            <input type="text" [(ngModel)]="editItem.location" class="form-control" />
+          </div>
+        </div>
+
+        <div class="form-group mt-3">
+          <label class="form-label">Unidad de Medida</label>
+          <input type="text" [(ngModel)]="editItem.unit" class="form-control" />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeEditModal()">Cancelar</button>
+        <button class="btn btn-primary" (click)="saveEditItem()">
+          <app-icon name="check" [size]="16"></app-icon>
+          <span>Guardar Cambios</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: CÁMARA PARA CAPTURAR FOTO EN BASE64 -->
+  <!-- ========================================================================= -->
+  <div *ngIf="isCameraModalOpen()" class="modal-overlay" (click)="closeCameraModal()">
+    <div class="modal-container camera-modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Tomar Fotografía con Cámara</h3>
+          <p class="text-muted">La captura se almacenará directamente en formato Base64</p>
+        </div>
+        <button class="close-btn" (click)="closeCameraModal()">
+          <app-icon name="x" [size]="20"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body p-0">
+        <!-- Error alert -->
+        <div *ngIf="cameraError()" class="alert alert-danger m-4">
+          <app-icon name="alert-triangle" [size]="20"></app-icon>
+          <span>{{ cameraError() }}</span>
+        </div>
+
+        <!-- Video stream / preview -->
+        <div class="camera-stream-wrapper">
+          <div *ngIf="isCameraLoading()" class="camera-loading-overlay">
+            <app-icon name="refresh-cw" [size]="32" extraClass="spin text-blue"></app-icon>
+            <span>Iniciando cámara...</span>
+          </div>
+
+          <!-- Video live -->
+          <video
+            #videoElement
+            *ngIf="!capturedImage()"
+            autoplay
+            playsinline
+            muted
+            class="camera-video"
+          ></video>
+
+          <!-- Captured image snapshot preview -->
+          <img
+            *ngIf="capturedImage()"
+            [src]="capturedImage()"
+            alt="Foto capturada"
+            class="camera-snapshot-preview"
+          />
+
+          <!-- Canvas oculto para procesar el frame -->
+          <canvas #canvasElement style="display: none;"></canvas>
+        </div>
+      </div>
+
+      <div class="modal-footer justify-between">
+        <button class="btn btn-secondary" (click)="closeCameraModal()">
+          Cancelar
+        </button>
+
+        <!-- Actions when stream is live -->
+        <div *ngIf="!capturedImage()" class="camera-buttons-group">
+          <button class="btn btn-secondary" (click)="switchCamera()" title="Cambiar lente de cámara">
+            <app-icon name="refresh-cw" [size]="16"></app-icon>
+            <span>Cambiar Cámara</span>
+          </button>
+
+          <button class="btn btn-primary" (click)="takePhoto()" [disabled]="isCameraLoading()">
+            <app-icon name="camera" [size]="18"></app-icon>
+            <span>Capturar Foto</span>
+          </button>
+        </div>
+
+        <!-- Actions when image was captured -->
+        <div *ngIf="capturedImage()" class="camera-buttons-group">
+          <button class="btn btn-secondary" (click)="retakePhoto()">
+            <app-icon name="refresh-cw" [size]="16"></app-icon>
+            <span>Tomar de nuevo</span>
+          </button>
+
+          <button class="btn btn-success" (click)="acceptPhoto()">
+            <app-icon name="check" [size]="18"></app-icon>
+            <span>Usar esta Fotografía</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: VISOR DE FOTOGRAFÍA (LIGHTBOX) -->
+  <!-- ========================================================================= -->
+  <div *ngIf="isPhotoPreviewModalOpen() && previewPhotoUrl()" class="modal-overlay" (click)="closePhotoPreview()">
+    <div class="lightbox-container" (click)="$event.stopPropagation()">
+      <div class="lightbox-header">
+        <h4>{{ previewPhotoTitle() }}</h4>
+        <button class="close-btn text-white" (click)="closePhotoPreview()">
+          <app-icon name="x" [size]="24"></app-icon>
+        </button>
+      </div>
+      <div class="lightbox-body">
+        <img [src]="previewPhotoUrl()" [alt]="previewPhotoTitle()" class="lightbox-img" />
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,613 @@
+.inventory-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.page-subtitle {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Spin animation for sync button */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Toast */
+.toast-notification {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 0.875rem 1.25rem;
+  border-radius: var(--radius-md);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 9999;
+  font-size: 0.875rem;
+  font-weight: 600;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from { transform: translateY(1rem); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Stock Alert Banner */
+.alert-banner-stock {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-left: 4px solid #f59e0b;
+  border-radius: var(--radius-md);
+  color: #92400e;
+  gap: 1rem;
+}
+
+.banner-left {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.banner-sub {
+  font-size: 0.8125rem;
+  color: #b45309;
+  margin-top: 0.15rem;
+}
+
+/* View Switch */
+.view-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.sub-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sub-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sub-tab-btn:hover {
+  background: #f8fafc;
+  color: var(--text-main);
+}
+
+.sub-tab-btn.active {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.tab-badge-count {
+  font-size: 0.6875rem;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+}
+
+/* Stock Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1.25rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.category-pills {
+  display: flex;
+  gap: 0.375rem;
+  overflow-x: auto;
+  max-width: 65%;
+  padding-bottom: 2px;
+}
+
+.cat-btn {
+  padding: 0.35rem 0.75rem;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.cat-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+}
+
+.cat-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+}
+
+.search-box {
+  position: relative;
+  min-width: 280px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.filter-input {
+  padding-left: 2.25rem;
+}
+
+/* Table Specifics */
+.row-alert {
+  background-color: #fffaf0 !important;
+}
+
+.product-cell-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.product-thumb-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.product-thumb-box.clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.product-thumb-box.clickable:hover {
+  transform: scale(1.08);
+  border-color: #2563eb;
+}
+
+.product-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.product-thumb-placeholder {
+  color: #94a3b8;
+}
+
+.code-badge {
+  font-size: 0.6875rem;
+  font-family: monospace;
+  font-weight: 700;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+.cat-tag {
+  font-size: 0.75rem;
+  color: #475569;
+  font-weight: 600;
+  background: #f8fafc;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.stock-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stock-qty {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.badge-critical {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.min-stock-text {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.font-mono {
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+
+.margin-pill {
+  display: flex;
+  flex-direction: column;
+}
+
+.margin-pct {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #059669;
+}
+
+.location-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.ot-link-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+.btn-group-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Kardex Toolbar */
+.kardex-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 1.25rem;
+  flex-wrap: wrap;
+}
+
+.kardex-filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 320px;
+}
+
+.kardex-select {
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.kardex-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Modals & Forms */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal-container {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalScale 0.2s ease-out;
+}
+
+@keyframes modalScale {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background: #f8fafc;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  background: #f1f5f9;
+  color: var(--text-main);
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* Callout in Adjust Modal */
+.stock-status-callout {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+}
+
+.stock-status-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stock-number {
+  font-size: 1.125rem;
+  color: #2563eb;
+}
+
+/* Photo Picker in Modals (Base64) */
+.photo-picker-section {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.photo-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.photo-preview-wrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.photo-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-preview-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.photo-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Camera Modal */
+.camera-modal-container {
+  max-width: 640px;
+}
+
+.camera-stream-wrapper {
+  position: relative;
+  width: 100%;
+  height: 380px;
+  background: #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.camera-video,
+.camera-snapshot-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-loading-overlay {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  color: #ffffff;
+  font-size: 0.875rem;
+}
+
+.camera-buttons-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Lightbox Modal */
+.lightbox-container {
+  background: #0f172a;
+  border-radius: var(--radius-lg);
+  max-width: 800px;
+  width: 90vw;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.lightbox-header {
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.lightbox-header h4 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.lightbox-body {
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.lightbox-img {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+}
+
+@media (max-width: 768px) {
+  .alert-banner-stock {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .category-pills {
+    max-width: 100%;
+  }
+
+  .search-box {
+    width: 100%;
+  }
+
+  .photo-picker-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
